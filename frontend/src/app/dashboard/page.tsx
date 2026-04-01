@@ -16,6 +16,9 @@ import {
   submitRideReview,
   updateRideStatus,
   updateLocation,
+  updateDriverAvailability,
+  getDriverProfile,
+  type DriverProfileResponse,
   type DonationIntent,
   type DonationPreferences,
   type Parish,
@@ -24,7 +27,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { DonationModal } from "@/components/DonationModal";
-
+import RideMap from "@/components/RideMap";
 export default function DashboardPage() {
   const router = useRouter();
   const { user, token, loading, setUser } = useAuth();
@@ -42,6 +45,8 @@ export default function DashboardPage() {
   const [driverError, setDriverError] = useState<string | null>(null);
   const [acceptingId, setAcceptingId] = useState<number | null>(null);
   const [statusUpdating, setStatusUpdating] = useState<number | null>(null);
+  const [driverProfile, setDriverProfile] = useState<DriverProfileResponse | null>(null);
+  const [availabilityUpdating, setAvailabilityUpdating] = useState(false);
   const [donationPrefs, setDonationPrefs] = useState<DonationPreferences | null>(null);
   const [donationIntent, setDonationIntent] = useState<DonationIntent | null>(null);
   const [donationModalOpen, setDonationModalOpen] = useState(false);
@@ -235,6 +240,14 @@ export default function DashboardPage() {
         ]);
         setOpenRequests(open);
         setAssignedRides(assigned);
+        
+        // Load driver profile specifically for status
+        try {
+          const profile = await getDriverProfile(token);
+          setDriverProfile(profile);
+        } catch (e) {
+             // Profile might not exist yet, that's fine.
+        }
       } catch (err) {
         setDriverError((err as Error).message || "Unable to load driver data.");
       } finally {
@@ -244,6 +257,45 @@ export default function DashboardPage() {
 
     void loadDriverData();
   }, [token, isDriver]);
+
+  // WebSocket for real-time updates
+  useEffect(() => {
+    if (!token || (!isRider && !isDriver)) return;
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+    const wsUrl = `${apiUrl.replace(/^http/, "ws")}/ws/?token=${token}`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.action === "new_request" && isDriver) {
+          // Insert the new request into the open requests queue
+          setOpenRequests((prev) => {
+             const exists = prev.find(req => req.id === data.data.ride_request_id);
+             if (exists) return prev;
+             
+             const newReq = {
+                id: data.data.ride_request_id,
+                ...data.data,
+                requested_datetime: new Date().toISOString(), // fallback
+                status: "pending",
+             }; // as RideRequestResponse if we had it imported, but duck typing is fine
+             return [newReq, ...prev];
+          });
+        } else if ((data.action === "ride_accepted" || data.action === "ride_updated") && isRider) {
+          // Rider receives an update, reload their ride requests
+          listMyRideRequests(token).then(setMyRequests).catch(console.error);
+        }
+      } catch (e) {
+        console.error("Failed to parse WebSocket message", e);
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [token, isRider, isDriver]);
 
   const handleRideRequestSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -312,6 +364,20 @@ export default function DashboardPage() {
       setDriverError((err as Error).message || "Unable to update ride status.");
     } finally {
       setStatusUpdating(null);
+    }
+  };
+
+  const handleToggleAvailability = async () => {
+    if (!token) return;
+    setAvailabilityUpdating(true);
+    try {
+      const isCurrentlyAvailable = driverProfile?.is_available ?? false;
+      const updated = await updateDriverAvailability(token, !isCurrentlyAvailable);
+      setDriverProfile(updated);
+    } catch (err) {
+      setDriverError((err as Error).message || "Unable to toggle availability.");
+    } finally {
+      setAvailabilityUpdating(false);
     }
   };
 
@@ -565,6 +631,13 @@ export default function DashboardPage() {
                       {req.notes && (
                         <p className="mt-1 text-[11px] text-slate-300">{req.notes}</p>
                       )}
+                      
+                      {req.status !== "pending" && req.status !== "cancelled" && req.pickup && req.dropoff && (
+                        <div className="mt-4 h-64 w-full">
+                          <RideMap pickup={req.pickup} dropoff={req.dropoff} />
+                        </div>
+                      )}
+
                       {req.status === "completed" && req.ride_id ? (
                         <div className="mt-3 rounded-md border border-slate-800 bg-slate-950/40 p-3 space-y-3">
                           <div className="flex items-start justify-between gap-3">
@@ -699,6 +772,30 @@ export default function DashboardPage() {
               </span>
             </div>
 
+            <div className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 p-3">
+              <div>
+                <p className="text-xs font-semibold text-slate-200">Driving Status</p>
+                <p className="text-[11px] text-slate-400">
+                  {driverProfile?.is_available ? "You are currently online and visible to riders." : "You are offline."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleAvailability}
+                disabled={availabilityUpdating}
+                className={`flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full p-1 transition-colors ${
+                  driverProfile?.is_available ? "bg-emerald-500" : "bg-slate-600"
+                } disabled:opacity-50`}
+                aria-pressed={driverProfile?.is_available || false}
+              >
+                <div
+                  className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                    driverProfile?.is_available ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+
             {driverError && (
               <p className="text-xs text-red-300" role="alert">
                 {driverError}
@@ -811,6 +908,11 @@ export default function DashboardPage() {
                             </button>
                           ))}
                         </div>
+                        {ride.status !== "cancelled" && ride.status !== "completed" && ride.pickup && ride.dropoff && (
+                          <div className="mt-4 h-64 w-full">
+                            <RideMap pickup={ride.pickup} dropoff={ride.dropoff} />
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>

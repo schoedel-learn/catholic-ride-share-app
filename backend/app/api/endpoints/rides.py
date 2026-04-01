@@ -4,15 +4,18 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from geoalchemy2 import WKTElement
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.api.deps.auth import get_current_verified_user
 from app.db.session import get_db
 from app.models.ride import Ride, RideStatus
 from app.models.ride_request import RideRequest, RideRequestStatus
 from app.models.user import User, UserRole
+from app.models.driver_profile import DriverProfile
+from app.services.websocket import manager, WebSocketAction
 from app.schemas.donation import DonationIntentResponse
 from app.schemas.ride import (
     RideAcceptResponse,
@@ -28,6 +31,10 @@ router = APIRouter()
 def _to_point(longitude: float, latitude: float) -> WKTElement:
     """Convert lat/long to PostGIS-compatible POINT."""
     return WKTElement(f"POINT({longitude} {latitude})", srid=4326)
+
+async def _notify_users(user_ids: list[int], message: dict):
+    """Notify users via WebSocket."""
+    await manager.broadcast_to_users(message, user_ids)
 
 
 def _ensure_driver(current_user: User) -> None:
@@ -80,6 +87,7 @@ def list_open_requests_for_drivers(
 @router.post("/", response_model=RideRequestResponse, status_code=status.HTTP_201_CREATED)
 def create_ride_request(
     payload: RideRequestCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_verified_user),
 ):
@@ -104,6 +112,38 @@ def create_ride_request(
     db.commit()
     db.refresh(ride_request)
 
+    # Find available drivers near pickup location using PostGIS ST_Distance
+    available_drivers = (
+        db.query(User.id)
+        .join(DriverProfile, DriverProfile.user_id == User.id)
+        .filter(
+            User.role.in_([UserRole.DRIVER, UserRole.BOTH]),
+            DriverProfile.is_available == True,
+            User.current_location.is_not(None)
+        )
+        .order_by(
+            func.ST_Distance(
+                User.current_location,
+                _to_point(longitude=payload.pickup.longitude, latitude=payload.pickup.latitude)
+            )
+        )
+        .limit(10)
+        .all()
+    )
+
+    driver_ids = [row[0] for row in available_drivers]
+    if driver_ids:
+        msg = {
+            "action": WebSocketAction.NEW_REQUEST,
+            "data": {
+                "ride_request_id": ride_request.id,
+                "pickup": {"lat": payload.pickup.latitude, "lng": payload.pickup.longitude},
+                "destination_type": payload.destination_type,
+                "passenger_count": payload.passenger_count,
+            }
+        }
+        background_tasks.add_task(_notify_users, driver_ids, msg)
+
     return ride_request
 
 
@@ -114,6 +154,7 @@ def create_ride_request(
 )
 def accept_ride_request(
     ride_request_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_verified_user),
 ):
@@ -157,6 +198,16 @@ def accept_ride_request(
     db.commit()
     db.refresh(ride)
 
+    # Notify rider that their ride was accepted
+    msg = {
+        "action": WebSocketAction.RIDE_ACCEPTED,
+        "data": {
+            "ride_id": ride.id,
+            "driver_name": current_user.full_name,
+        }
+    }
+    background_tasks.add_task(_notify_users, [ride_request.rider_id], msg)
+
     return ride
 
 
@@ -182,6 +233,7 @@ def list_assigned_rides(
 def update_ride_status(
     ride_id: int,
     payload: RideStatusUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_verified_user),
 ):
@@ -213,6 +265,16 @@ def update_ride_status(
 
     db.commit()
     db.refresh(ride)
+
+    # Notify rider of status update
+    msg = {
+        "action": WebSocketAction.RIDE_UPDATED,
+        "data": {
+            "ride_id": ride.id,
+            "status": ride.status,
+        }
+    }
+    background_tasks.add_task(_notify_users, [ride.rider_id], msg)
 
     auto_donation_intent: DonationIntentResponse | None = None
 

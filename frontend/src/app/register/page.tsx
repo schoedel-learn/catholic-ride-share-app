@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
-import { registerUser } from "@/lib/api";
+import { FormEvent, useState, useEffect } from "react";
+import { registerUser, getDioceses, getParishes, Diocese, Parish } from "@/lib/api";
 
 export default function RegisterPage() {
   const [form, setForm] = useState({
@@ -11,14 +11,30 @@ export default function RegisterPage() {
     email: "",
     password: "",
     phone: "",
+    parish_id: "" as number | string,
   });
+  const [dioceses, setDioceses] = useState<Diocese[]>([]);
+  const [parishes, setParishes] = useState<Parish[]>([]);
+  const [selectedDioceseId, setSelectedDioceseId] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (field: keyof typeof form, value: string) => {
+  const handleChange = (field: keyof typeof form, value: string | number) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
+
+  useEffect(() => {
+    getDioceses().then(setDioceses).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (selectedDioceseId) {
+      getParishes(Number(selectedDioceseId)).then(setParishes).catch(console.error);
+    } else {
+      setParishes([]);
+    }
+  }, [selectedDioceseId]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -33,6 +49,7 @@ export default function RegisterPage() {
         last_name: form.last_name,
         phone: form.phone || undefined,
         role: "rider",
+        parish_id: Number(form.parish_id) || undefined,
       });
       setSuccess(
         "Account created. Please check your email for a verification code before signing in."
@@ -139,6 +156,45 @@ export default function RegisterPage() {
                 onChange={(e) => handleChange("phone", e.target.value)}
                 className="mt-2 block w-full rounded-none border-2 border-navy bg-white px-4 py-3 text-base text-navy placeholder-slate-400 focus:outline-none focus:border-marian"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-navy uppercase tracking-wide">
+                Diocese
+              </label>
+              <select
+                required
+                value={selectedDioceseId}
+                onChange={(e) => setSelectedDioceseId(e.target.value)}
+                className="mt-2 block w-full rounded-none border-2 border-navy bg-white px-4 py-3 text-base text-navy focus:outline-none focus:border-marian"
+              >
+                <option value="">Select your diocese</option>
+                {dioceses.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.state})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-navy uppercase tracking-wide">
+                Parish
+              </label>
+              <select
+                required
+                disabled={!selectedDioceseId}
+                value={form.parish_id}
+                onChange={(e) => handleChange("parish_id", Number(e.target.value))}
+                className="mt-2 block w-full rounded-none border-2 border-navy bg-white px-4 py-3 text-base text-navy focus:outline-none focus:border-marian disabled:bg-slate-100 disabled:text-slate-500"
+              >
+                <option value="">Select your parish</option>
+                {parishes.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} {p.city ? `- ${p.city}` : ""}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>

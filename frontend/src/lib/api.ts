@@ -21,9 +21,16 @@ export interface User {
   last_known_longitude?: number | null;
 }
 
+export interface Diocese {
+  id: number;
+  name: string;
+  state: string;
+}
+
 export interface Parish {
   id: number;
   name: string;
+  diocese_id?: number | null;
   address?: string | null;
   city?: string | null;
   state?: string | null;
@@ -41,6 +48,8 @@ export interface RideRequest {
   requested_datetime: string;
   notes?: string | null;
   passenger_count: number;
+  pickup: { latitude: number; longitude: number };
+  dropoff: { latitude: number; longitude: number };
   status: "pending" | "accepted" | "in_progress" | "completed" | "cancelled";
   created_at: string;
   updated_at: string;
@@ -102,9 +111,33 @@ export interface Ride {
     | "in_progress"
     | "completed"
     | "cancelled";
+  pickup: { latitude: number; longitude: number };
+  dropoff: { latitude: number; longitude: number };
   accepted_at: string;
   auto_donation_intent?: DonationIntent | null;
   completed_at?: string | null;
+}
+
+// Admin / Driver Profile
+export interface DriverProfileResponse {
+  id: number;
+  user_id: number;
+  vehicle_make?: string | null;
+  vehicle_model?: string | null;
+  vehicle_year?: number | null;
+  vehicle_color?: string | null;
+  license_plate?: string | null;
+  vehicle_capacity: number;
+  insurance_verified: boolean;
+  background_check_status: string;
+  training_completed_date?: string | null;
+  training_expiration_date?: string | null;
+  admin_notes?: string | null;
+  is_available: boolean;
+  total_rides: number;
+  average_rating: number;
+  created_at: string;
+  updated_at: string;
 }
 
 // Helper for API requests
@@ -163,6 +196,7 @@ export async function register(data: {
   last_name: string;
   phone?: string;
   role?: string;
+  parish_id?: number;
 }): Promise<User> {
   return apiFetch<User>("/auth/register", {
     method: "POST",
@@ -411,3 +445,54 @@ export async function submitRideReview(
     body: JSON.stringify(data),
   });
 }
+
+// Admin API
+export async function listDrivers(token: string): Promise<DriverProfileResponse[]> {
+  return apiFetch<DriverProfileResponse[]>("/admin/drivers", {
+    headers: authHeaders(token),
+  });
+}
+
+export async function verifyDriver(
+  token: string,
+  userId: number,
+  data: {
+    background_check_status?: string | null;
+    training_completed_date?: string | null;
+    training_expiration_date?: string | null;
+    admin_notes?: string | null;
+  }
+): Promise<DriverProfileResponse> {
+  return apiFetch<DriverProfileResponse>(`/admin/drivers/${userId}/verify`, {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateDriverAvailability(
+  token: string,
+  isAvailable: boolean
+): Promise<DriverProfileResponse> {
+  return apiFetch<DriverProfileResponse>("/drivers/me/availability", {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify({ is_available: isAvailable }),
+  });
+}
+
+export async function getDioceses(): Promise<Diocese[]> {
+  return apiFetch<Diocese[]>("/dioceses");
+}
+
+export async function getParishes(dioceseId?: number): Promise<Parish[]> {
+  const url = dioceseId ? `/parishes?diocese_id=${dioceseId}` : "/parishes";
+  return apiFetch<Parish[]>(url);
+}
+
+export async function getDriverProfile(token: string): Promise<DriverProfileResponse> {
+  return apiFetch<DriverProfileResponse>("/drivers/me", {
+    headers: authHeaders(token),
+  });
+}
+

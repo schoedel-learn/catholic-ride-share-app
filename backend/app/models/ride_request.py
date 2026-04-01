@@ -4,6 +4,7 @@ import enum
 from datetime import datetime
 
 from geoalchemy2 import Geography
+from geoalchemy2.shape import to_shape
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, Text
 
 from app.db.session import Base
@@ -66,3 +67,25 @@ class RideRequest(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    @property
+    def pickup(self) -> dict:
+        if isinstance(self.pickup_location, str):
+            # Fallback if it's somehow returned as string, though usually WKBElement
+            return {"latitude": 0.0, "longitude": 0.0}
+        try:
+            point = to_shape(self.pickup_location)
+            return {"latitude": point.y, "longitude": point.x}
+        except Exception:
+            return {"latitude": 0.0, "longitude": 0.0}
+
+    @property
+    def dropoff(self) -> dict:
+        if isinstance(self.destination_location, str):
+            return {"latitude": 0.0, "longitude": 0.0}
+        try:
+            point = to_shape(self.destination_location)
+            return {"latitude": point.y, "longitude": point.x}
+        except Exception:
+            return {"latitude": 0.0, "longitude": 0.0}
+

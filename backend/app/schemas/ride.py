@@ -45,6 +45,8 @@ class RideRequestResponse(BaseModel):
     status: RideRequestStatus
     created_at: datetime
     updated_at: datetime
+    pickup: Location
+    dropoff: Location
 
     class Config:
         from_attributes = True
@@ -59,6 +61,8 @@ class RideAcceptResponse(BaseModel):
     rider_id: int
     status: RideStatus
     accepted_at: datetime
+    pickup: Location
+    dropoff: Location
     auto_donation_intent: Optional[DonationIntentResponse] = None
 
     class Config:

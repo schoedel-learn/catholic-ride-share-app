@@ -27,6 +27,11 @@ class DriverProfile(Base):
     # Verification
     insurance_verified = Column(Boolean, default=False, nullable=False)
     background_check_status = Column(String, default="pending", nullable=False)
+    
+    # Safe Environment / Admin Vetting
+    training_completed_date = Column(DateTime, nullable=True)
+    training_expiration_date = Column(DateTime, nullable=True)
+    admin_notes = Column(String, nullable=True)
 
     # Status
     is_available = Column(Boolean, default=False, nullable=False)

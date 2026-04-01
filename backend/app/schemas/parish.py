@@ -13,6 +13,7 @@ class ParishResponse(BaseModel):
 
     id: int
     name: str
+    diocese_id: Optional[int] = None
     address_line1: str
     address_line2: Optional[str] = None
     city: str

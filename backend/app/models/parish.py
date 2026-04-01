@@ -3,7 +3,8 @@
 from datetime import datetime
 
 from geoalchemy2 import Geography
-from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy import Column, DateTime, Integer, String, ForeignKey
+from sqlalchemy.orm import relationship
 
 from app.db.session import Base
 
@@ -15,6 +16,10 @@ class Parish(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
+    diocese_id = Column(Integer, ForeignKey("dioceses.id"), nullable=True)
+
+    # Relationships
+    diocese = relationship("Diocese", back_populates="parishes")
 
     # Address
     address_line1 = Column(String, nullable=False)
