@@ -28,6 +28,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { DonationModal } from "@/components/DonationModal";
 import RideMap from "@/components/RideMap";
+import Navbar from "@/components/Navbar";
 export default function DashboardPage() {
   const router = useRouter();
   const { user, token, loading, setUser } = useAuth();
@@ -395,6 +396,7 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
+      <Navbar />
       <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
         <header className="space-y-1">
           <p className="text-xs text-slate-400">Dashboard</p>
@@ -406,6 +408,33 @@ export default function DashboardPage() {
             your upcoming trips.
           </p>
         </header>
+
+        {/* Driver Verification Pending Banner */}
+        {isDriver && driverProfile && driverProfile.background_check_status !== "approved" && (
+          <div className="rounded-xl border-2 border-amber-600/50 bg-amber-950/30 p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <svg className="h-5 w-5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5Z" />
+              </svg>
+              <h2 className="text-sm font-bold text-amber-300">Driver Verification Pending</h2>
+            </div>
+            <p className="text-xs text-amber-200/80">
+              Your driver account is registered but <strong>not yet verified</strong>. You will not appear to riders until an administrator has completed your background check and safe environment training verification. You&apos;ll be notified once approved.
+            </p>
+            <p className="text-[11px] text-amber-400/60">
+              Status: <span className="uppercase font-semibold">{driverProfile.background_check_status}</span>
+            </p>
+          </div>
+        )}
+
+        {isDriver && !driverProfile && (
+          <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 space-y-2">
+            <h2 className="text-sm font-semibold text-slate-200">Driver Account</h2>
+            <p className="text-xs text-slate-400">
+              You registered as a driver. Toggle your availability below to create your driver profile and begin the verification process.
+            </p>
+          </div>
+        )}
         {donationError && (
           <div
             className="rounded-md bg-red-900/30 border border-red-700 px-3 py-2 text-xs text-red-200"

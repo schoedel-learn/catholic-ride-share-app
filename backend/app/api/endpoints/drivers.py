@@ -21,6 +21,24 @@ def get_available_drivers(
     return {"message": "Available drivers endpoint - to be implemented"}
 
 
+@router.get("/me", response_model=DriverProfileResponse)
+def get_my_driver_profile(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_verified_user),
+):
+    """Get the current driver's profile."""
+    if current_user.role not in ["driver", "both", "admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized as a driver")
+
+    driver = db.query(DriverProfile).filter(DriverProfile.user_id == current_user.id).first()
+    if not driver:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Driver profile not found. Toggle availability to create one.",
+        )
+    return driver
+
+
 @router.put("/me/availability", response_model=DriverProfileResponse)
 def update_driver_availability(
     data: DriverAvailabilityUpdate,

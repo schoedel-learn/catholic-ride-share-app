@@ -45,6 +45,17 @@ def _ensure_driver(current_user: User) -> None:
         )
 
 
+def _ensure_verified_driver(current_user: User, db: Session) -> None:
+    """Ensure user is a driver AND has been approved by admin."""
+    _ensure_driver(current_user)
+    profile = db.query(DriverProfile).filter(DriverProfile.user_id == current_user.id).first()
+    if not profile or profile.background_check_status != "approved":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your driver account has not been verified by an administrator yet.",
+        )
+
+
 @router.get("/mine", response_model=list[RideRequestResponse])
 def list_my_ride_requests(
     db: Session = Depends(get_db),
@@ -71,7 +82,7 @@ def list_open_requests_for_drivers(
     current_user: User = Depends(get_current_verified_user),
 ):
     """List pending ride requests available for drivers to accept."""
-    _ensure_driver(current_user)
+    _ensure_verified_driver(current_user, db)
 
     return (
         db.query(RideRequest)
@@ -119,11 +130,12 @@ def create_ride_request(
         .filter(
             User.role.in_([UserRole.DRIVER, UserRole.BOTH]),
             DriverProfile.is_available == True,
-            User.current_location.is_not(None)
+            DriverProfile.background_check_status == "approved",
+            User.last_known_location.is_not(None)
         )
         .order_by(
             func.ST_Distance(
-                User.current_location,
+                User.last_known_location,
                 _to_point(longitude=payload.pickup.longitude, latitude=payload.pickup.latitude)
             )
         )
@@ -159,7 +171,7 @@ def accept_ride_request(
     current_user: User = Depends(get_current_verified_user),
 ):
     """Allow a driver to accept a pending ride request."""
-    _ensure_driver(current_user)
+    _ensure_verified_driver(current_user, db)
 
     ride_request = db.query(RideRequest).filter(RideRequest.id == ride_request_id).first()
     if not ride_request:

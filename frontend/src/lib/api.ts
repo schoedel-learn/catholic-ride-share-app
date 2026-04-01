@@ -3,7 +3,7 @@
  */
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
 // Types
 export interface User {
@@ -12,7 +12,7 @@ export interface User {
   first_name: string;
   last_name: string;
   phone?: string | null;
-  role: "rider" | "driver" | "both" | "admin";
+  role: "rider" | "driver" | "both" | "coordinator" | "admin";
   parish_id?: number | null;
   profile_photo_url?: string | null;
   is_active: boolean;
@@ -482,11 +482,11 @@ export async function updateDriverAvailability(
 }
 
 export async function getDioceses(): Promise<Diocese[]> {
-  return apiFetch<Diocese[]>("/dioceses");
+  return apiFetch<Diocese[]>("/dioceses/");
 }
 
 export async function getParishes(dioceseId?: number): Promise<Parish[]> {
-  const url = dioceseId ? `/parishes?diocese_id=${dioceseId}` : "/parishes";
+  const url = dioceseId ? `/parishes/?diocese_id=${dioceseId}` : "/parishes/";
   return apiFetch<Parish[]>(url);
 }
 
@@ -496,3 +496,16 @@ export async function getDriverProfile(token: string): Promise<DriverProfileResp
   });
 }
 
+export interface ParishStats {
+  total_drivers: number;
+  verified_drivers: number;
+  pending_drivers: number;
+  total_ride_requests: number;
+  completed_rides: number;
+}
+
+export async function getParishStats(token: string): Promise<ParishStats> {
+  return apiFetch<ParishStats>("/admin/parish/stats", {
+    headers: authHeaders(token),
+  });
+}

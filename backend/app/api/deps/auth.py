@@ -70,10 +70,10 @@ def get_current_verified_user(
 def get_current_admin_user(
     current_user: User = Depends(get_current_verified_user),
 ) -> User:
-    """Get current user with admin role."""
-    if current_user.role != UserRole.ADMIN:
+    """Get current user with admin or coordinator role."""
+    if current_user.role not in {UserRole.ADMIN, UserRole.COORDINATOR}:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required",
+            detail="Admin or coordinator access required",
         )
     return current_user

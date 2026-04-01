@@ -155,7 +155,7 @@ def get_user(
     return user
 
 
-@router.post("/location", response_model=UserResponse)
+@router.put("/me/location", response_model=UserResponse)
 def update_user_location(
     location: UserLocationUpdate,
     current_user: User = Depends(get_current_active_user),

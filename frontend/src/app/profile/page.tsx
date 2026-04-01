@@ -13,6 +13,7 @@ import {
   type DonationPreferences,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import Navbar from "@/components/Navbar";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -167,28 +168,7 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-900/80">
-        <div className="mx-auto max-w-4xl px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold">Your profile</h1>
-            <p className="text-xs text-slate-400">
-              Logged in as {user.email}{" "}
-              {!user.is_verified && (
-                <span className="ml-1 font-medium text-amber-300">
-                  (email not verified)
-                </span>
-              )}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={logout}
-            className="text-xs rounded-md border border-slate-700 px-3 py-1.5 text-slate-200 hover:bg-slate-800"
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
+      <Navbar />
 
       <div className="mx-auto max-w-4xl px-4 py-8 grid gap-8 md:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)]">
         <section>

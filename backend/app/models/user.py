@@ -14,6 +14,7 @@ from app.db.session import Base
 
 if TYPE_CHECKING:
     from app.models.driver_profile import DriverProfile
+    from app.models.parish import Parish
 
 
 class UserRole(str, enum.Enum):
@@ -22,6 +23,7 @@ class UserRole(str, enum.Enum):
     RIDER = "rider"
     DRIVER = "driver"
     BOTH = "both"
+    COORDINATOR = "coordinator"
     ADMIN = "admin"
 
 
@@ -39,7 +41,7 @@ class User(Base):
     last_name: Mapped[str] = mapped_column(String, nullable=False)
 
     role: Mapped[str] = mapped_column(
-        Enum("rider", "driver", "both", "admin", name="userrole"),
+        Enum("rider", "driver", "both", "coordinator", "admin", name="userrole"),
         default="rider",
         nullable=False,
     )
@@ -80,3 +82,14 @@ class User(Base):
     driver_profile: Mapped["DriverProfile"] = relationship(
         "DriverProfile", back_populates="user", uselist=False
     )
+    # Parish cluster: coordinators can manage multiple parishes
+    coordinated_parishes: Mapped[list["Parish"]] = relationship(
+        "Parish",
+        secondary="coordinator_parishes",
+        lazy="selectin",
+    )
+
+    @property
+    def full_name(self) -> str:
+        """Return the user's full name."""
+        return f"{self.first_name} {self.last_name}"
