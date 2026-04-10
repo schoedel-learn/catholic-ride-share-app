@@ -109,7 +109,8 @@ def fake_redis(monkeypatch):
 
     try:
         redis_module.get_redis_client.cache_clear()
-    except Exception:
+    except AttributeError:
+        # get_redis_client may not be cache-wrapped in some test configurations.
         pass
 
     monkeypatch.setattr(redis_module, "get_redis_client", lambda: client)
