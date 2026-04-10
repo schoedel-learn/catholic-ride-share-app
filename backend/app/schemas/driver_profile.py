@@ -31,7 +31,9 @@ class DriverProfileUpdate(DriverProfileBase):
 
 class DriverAvailabilityUpdate(BaseModel):
     """Driver availability toggle schema."""
+
     is_available: bool
+
 
 class DriverTrainingUpdate(BaseModel):
     """Driver training status update schema for admins."""

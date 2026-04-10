@@ -57,11 +57,12 @@ def update_driver_availability(
         db.commit()
         db.refresh(driver)
         return driver
-        
+
     driver.is_available = data.is_available
     db.commit()
     db.refresh(driver)
     return driver
+
 
 @router.post("/profile")
 def create_driver_profile(

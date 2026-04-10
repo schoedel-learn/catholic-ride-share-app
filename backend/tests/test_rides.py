@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from fastapi import status
 
 from app.db.session import SessionLocal
+from app.models.driver_profile import DriverProfile
 from app.models.user import User
 
 
@@ -11,6 +12,26 @@ def _verify_user(email: str) -> None:
     user = db.query(User).filter(User.email == email).first()
     assert user is not None
     user.is_verified = True
+    db.commit()
+    db.close()
+
+
+def _approve_driver(email: str) -> None:
+    """Create an admin-approved DriverProfile for the given driver user."""
+    db = SessionLocal()
+    user = db.query(User).filter(User.email == email).first()
+    assert user is not None
+    profile = db.query(DriverProfile).filter(DriverProfile.user_id == user.id).first()
+    if profile is None:
+        profile = DriverProfile(
+            user_id=user.id,
+            background_check_status="approved",
+            is_available=True,
+        )
+        db.add(profile)
+    else:
+        profile.background_check_status = "approved"
+        profile.is_available = True
     db.commit()
     db.close()
 
@@ -54,6 +75,7 @@ def test_rider_creates_and_driver_accepts_ride(client):
 
     _verify_user(rider_email)
     _verify_user(driver_email)
+    _approve_driver(driver_email)
 
     rider_token = _login(client, rider_email, password)
     driver_token = _login(client, driver_email, password)

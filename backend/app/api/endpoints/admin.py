@@ -97,7 +97,8 @@ def verify_driver(
     if not _is_global_admin(current_admin) and "background_check_status" in update_data:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can change background check status. Contact your diocesan admin.",
+            detail="Only administrators can change background check status."
+            " Contact your diocesan admin.",
         )
 
     for field, value in update_data.items():
@@ -129,12 +130,7 @@ def get_parish_rides(
             return []
         query = query.filter(RideRequest.parish_id.in_(parish_ids))
 
-    rides = (
-        query.order_by(RideRequest.created_at.desc())
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    rides = query.order_by(RideRequest.created_at.desc()).offset(skip).limit(limit).all()
     return rides
 
 
@@ -163,9 +159,7 @@ def get_parish_stats(
         driver_query = driver_query.join(User, User.id == DriverProfile.user_id).filter(
             User.parish_id.in_(parish_ids)
         )
-        ride_query = ride_query.filter(
-            RideRequest.parish_id.in_(parish_ids)
-        )
+        ride_query = ride_query.filter(RideRequest.parish_id.in_(parish_ids))
 
     total_drivers = driver_query.count()
     verified_drivers = driver_query.filter(
@@ -173,11 +167,7 @@ def get_parish_stats(
     ).count()
     pending_drivers = total_drivers - verified_drivers
     total_ride_requests = ride_query.count()
-    completed_rides = (
-        db.query(Ride)
-        .filter(Ride.status == RideStatus.COMPLETED)
-        .count()
-    )
+    completed_rides = db.query(Ride).filter(Ride.status == RideStatus.COMPLETED).count()
 
     return {
         "total_drivers": total_drivers,

@@ -6,16 +6,15 @@ from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from geoalchemy2 import WKTElement
-from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from app.api.deps.auth import get_current_verified_user
 from app.db.session import get_db
+from app.models.driver_profile import DriverProfile
 from app.models.ride import Ride, RideStatus
 from app.models.ride_request import RideRequest, RideRequestStatus
 from app.models.user import User, UserRole
-from app.models.driver_profile import DriverProfile
-from app.services.websocket import manager, WebSocketAction
 from app.schemas.donation import DonationIntentResponse
 from app.schemas.ride import (
     RideAcceptResponse,
@@ -24,6 +23,7 @@ from app.schemas.ride import (
     RideStatusUpdate,
 )
 from app.services.payment import PaymentService, StripeNotConfiguredError
+from app.services.websocket import WebSocketAction, manager
 
 router = APIRouter()
 
@@ -31,6 +31,7 @@ router = APIRouter()
 def _to_point(longitude: float, latitude: float) -> WKTElement:
     """Convert lat/long to PostGIS-compatible POINT."""
     return WKTElement(f"POINT({longitude} {latitude})", srid=4326)
+
 
 async def _notify_users(user_ids: list[int], message: dict):
     """Notify users via WebSocket."""
@@ -123,27 +124,32 @@ def create_ride_request(
     db.commit()
     db.refresh(ride_request)
 
-    # Find available drivers near pickup location using PostGIS ST_Distance
-    available_drivers = (
-        db.query(User.id)
-        .join(DriverProfile, DriverProfile.user_id == User.id)
-        .filter(
-            User.role.in_([UserRole.DRIVER, UserRole.BOTH]),
-            DriverProfile.is_available == True,
-            DriverProfile.background_check_status == "approved",
-            User.last_known_location.is_not(None)
-        )
-        .order_by(
-            func.ST_Distance(
-                User.last_known_location,
-                _to_point(longitude=payload.pickup.longitude, latitude=payload.pickup.latitude)
+    # Find available drivers near pickup location using PostGIS ST_Distance.
+    # This is best-effort: if the spatial query fails (e.g., PostGIS unavailable),
+    # the ride is still created and drivers can discover it via polling.
+    driver_ids: list[int] = []
+    try:
+        available_drivers = (
+            db.query(User.id)
+            .join(DriverProfile, DriverProfile.user_id == User.id)
+            .filter(
+                User.role.in_([UserRole.DRIVER, UserRole.BOTH]),
+                DriverProfile.is_available.is_(True),
+                DriverProfile.background_check_status == "approved",
+                User.last_known_location.is_not(None),
             )
+            .order_by(
+                func.ST_Distance(
+                    User.last_known_location,
+                    _to_point(longitude=payload.pickup.longitude, latitude=payload.pickup.latitude),
+                )
+            )
+            .limit(10)
+            .all()
         )
-        .limit(10)
-        .all()
-    )
-
-    driver_ids = [row[0] for row in available_drivers]
+        driver_ids = [row[0] for row in available_drivers]
+    except Exception:
+        pass
     if driver_ids:
         msg = {
             "action": WebSocketAction.NEW_REQUEST,
@@ -152,7 +158,7 @@ def create_ride_request(
                 "pickup": {"lat": payload.pickup.latitude, "lng": payload.pickup.longitude},
                 "destination_type": payload.destination_type,
                 "passenger_count": payload.passenger_count,
-            }
+            },
         }
         background_tasks.add_task(_notify_users, driver_ids, msg)
 
@@ -216,7 +222,7 @@ def accept_ride_request(
         "data": {
             "ride_id": ride.id,
             "driver_name": current_user.full_name,
-        }
+        },
     }
     background_tasks.add_task(_notify_users, [ride_request.rider_id], msg)
 
@@ -284,7 +290,7 @@ def update_ride_status(
         "data": {
             "ride_id": ride.id,
             "status": ride.status,
-        }
+        },
     }
     background_tasks.add_task(_notify_users, [ride.rider_id], msg)
 
@@ -353,6 +359,8 @@ def update_ride_status(
             "rider_id": ride.rider_id,
             "status": ride.status,
             "accepted_at": ride.accepted_at,
+            "pickup": ride.pickup,
+            "dropoff": ride.dropoff,
             "auto_donation_intent": auto_donation_intent,
         }
     )

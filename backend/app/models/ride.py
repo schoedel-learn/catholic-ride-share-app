@@ -65,8 +65,12 @@ class Ride(Base):
 
     @property
     def pickup(self) -> dict:
-        return self.ride_request.pickup if self.ride_request else {"latitude": 0.0, "longitude": 0.0}
+        return (
+            self.ride_request.pickup if self.ride_request else {"latitude": 0.0, "longitude": 0.0}
+        )
 
     @property
     def dropoff(self) -> dict:
-        return self.ride_request.dropoff if self.ride_request else {"latitude": 0.0, "longitude": 0.0}
+        return (
+            self.ride_request.dropoff if self.ride_request else {"latitude": 0.0, "longitude": 0.0}
+        )

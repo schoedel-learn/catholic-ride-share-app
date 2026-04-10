@@ -16,9 +16,7 @@ router = APIRouter()
 
 @router.get("/", response_model=list[ParishResponse])
 def list_parishes(
-    db: Session = Depends(get_db), 
-    q: Optional[str] = None,
-    diocese_id: Optional[int] = None
+    db: Session = Depends(get_db), q: Optional[str] = None, diocese_id: Optional[int] = None
 ):
     """List all parishes, optionally filtered by name and diocese_id."""
     query = db.query(Parish).order_by(Parish.name.asc())
