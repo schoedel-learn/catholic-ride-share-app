@@ -15,7 +15,11 @@ from app.db.session import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 
 # Import models so metadata is aware for table creation.
-from app.models import driver_profile, parish, ride, ride_request, user  # noqa: F401, E402
+import app.models.driver_profile  # noqa: E402
+import app.models.parish  # noqa: E402
+import app.models.ride  # noqa: E402
+import app.models.ride_request  # noqa: E402
+import app.models.user  # noqa: E402
 
 # Check if we're using SQLite (for local dev) or PostgreSQL (for CI)
 _is_sqlite = "sqlite" in os.environ.get("DATABASE_URL", "sqlite")
