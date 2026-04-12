@@ -1,5 +1,10 @@
 # Catholic Ride Share
 
+[![Tests](https://github.com/schoedel-learn/catholic-ride-share-app/actions/workflows/test.yml/badge.svg)](https://github.com/schoedel-learn/catholic-ride-share-app/actions/workflows/test.yml)
+[![CodeQL](https://github.com/schoedel-learn/catholic-ride-share-app/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/schoedel-learn/catholic-ride-share-app/actions/workflows/codeql-analysis.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 A community-driven ride-sharing application connecting Catholics who need transportation to Mass, Confession, prayer events, and church social functions with volunteer drivers who are willing to help – especially in rural areas where distances can be long.
 
 ## Mission
@@ -398,6 +403,7 @@ The detailed technical roadmap is maintained in the `braingrid-improvements` doc
 
 - **[Stakeholder Guide](docs/STAKEHOLDER_GUIDE.md)** - Comprehensive information on risk, liability, security, and safety for stakeholders
 - **[Architecture](docs/ARCHITECTURE.md)** - Technical architecture and system design
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - How to set up GitHub Actions secrets and production environment secrets on the VPS
 - **[Contributing](CONTRIBUTING.md)** - How to contribute to the project
 - **[Code of Conduct](CODE_OF_CONDUCT.md)** - Community standards for respectful interaction
 
