@@ -1,0 +1,47 @@
+name: Apply Branch Protection
+
+# Applies branch protection rules to the main branch via the GitHub REST API.
+# Trigger manually via workflow_dispatch or automatically when the config changes.
+#
+# Required: The GITHUB_TOKEN must have `administration: write` permission,
+# which is granted by the permissions block below.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/branch-protection.json"
+      - ".github/workflows/apply-branch-protection.yml"
+
+jobs:
+  apply-protection:
+    name: Apply Branch Protection Rules
+    runs-on: ubuntu-latest
+    permissions:
+      # Required to set branch protection rules
+      administration: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Apply branch protection rules
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Applying branch protection rules to main..."
+          gh api \
+            --method PUT \
+            repos/${{ github.repository }}/branches/main/protection \
+            --input .github/branch-protection.json
+          echo "Branch protection rules applied successfully."
+
+      - name: Display applied rules
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Current branch protection for main:"
+          JQ_FILTER='{required_pr_reviews: .required_pull_request_reviews | {approvals_required: .required_approving_review_count, dismiss_stale_reviews: .dismiss_stale_reviews, require_code_owner_reviews: .require_code_owner_reviews}, required_status_checks: .required_status_checks | {strict: .strict, contexts: .contexts}, enforce_admins: .enforce_admins.enabled, allow_force_pushes: .allow_force_pushes.enabled, allow_deletions: .allow_deletions.enabled, required_conversation_resolution: .required_conversation_resolution.enabled}'
+          gh api "repos/${{ github.repository }}/branches/main/protection" --jq "$JQ_FILTER"

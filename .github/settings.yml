@@ -34,7 +34,7 @@ branches:
       # Require pull request reviews before merging
       required_pull_request_reviews:
         dismiss_stale_reviews: true
-        require_code_owner_reviews: false
+        require_code_owner_reviews: true
         required_approving_review_count: 1
       
       # Require status checks to pass before merging
@@ -42,8 +42,10 @@ branches:
         strict: true
         contexts:
           - "test"
+          - "Security Scanning"
       
       # Enforce restrictions for administrators
+      # Set to false so repo admins can bypass in emergencies (e.g. hotfixes)
       enforce_admins: false
       
       # Restrictions on who can push to the branch
@@ -57,6 +59,9 @@ branches:
       
       # Require linear history
       required_linear_history: false
+      
+      # All review conversations must be resolved before merging
+      required_conversation_resolution: true
       
       # Require signed commits (optional - can be enabled later)
       required_signatures: false
