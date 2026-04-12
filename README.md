@@ -5,6 +5,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
+> **🚀 Use this template** — Click the green **"Use this template"** button at the top of this page to create your own copy of this project and adapt it for your community or diocese.
+
 A community-driven ride-sharing application connecting Catholics who need transportation to Mass, Confession, prayer events, and church social functions with volunteer drivers who are willing to help – especially in rural areas where distances can be long.
 
 ## Mission
@@ -384,7 +386,7 @@ For setting up GitHub security features, see [GitHub Security Setup Guide](docs/
 
 ## License
 
-This project is built to serve the Catholic community. License TBD.
+This project is licensed under the [MIT License](LICENSE). Built with love to serve the Catholic community.
 
 ## Roadmap
 
