@@ -4,10 +4,7 @@ Thank you for your interest in contributing to Catholic Ride Share! This project
 
 ## Code of Conduct
 
-- Be respectful and charitable in all interactions
-- Focus on what is best for the community
-- Show empathy towards other contributors
-- Accept constructive criticism gracefully
+All interactions in this project — Issues, Discussions, Pull Requests, and beyond — are governed by our [Code of Conduct](CODE_OF_CONDUCT.md). In short: be respectful, be charitable, and remember that everyone here is volunteering their time for a worthy mission.
 
 ## Security First
 
@@ -213,9 +210,9 @@ Look for issues tagged with `good first issue` for beginner-friendly tasks.
 
 ## Questions?
 
-- Open an issue with the `question` label
+- **[Start a Discussion](https://github.com/schoedel-learn/catholic-ride-share-app/discussions)** — the best place to ask questions, share ideas, or introduce yourself
+- Open an issue with the `question` label for bugs or feature ideas
 - Check existing documentation
-- Reach out to maintainers
 
 ## License
 

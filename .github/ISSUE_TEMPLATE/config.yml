@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Ask a Question or Start a Discussion
+    url: https://github.com/schoedel-learn/catholic-ride-share-app/discussions/new/choose
+    about: Have a question, idea, or want to introduce yourself? Start a Discussion — it's the best place for conversations that don't fit neatly into a bug report or feature request.
+  - name: 🙏 Mission & Vision
+    url: https://github.com/schoedel-learn/catholic-ride-share-app/discussions/categories/general
+    about: Learn more about the Catholic Ride Share mission and share your thoughts.

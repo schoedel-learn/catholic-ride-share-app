@@ -1,5 +1,10 @@
 # Catholic Ride Share
 
+[![Tests](https://github.com/schoedel-learn/catholic-ride-share-app/actions/workflows/test.yml/badge.svg)](https://github.com/schoedel-learn/catholic-ride-share-app/actions/workflows/test.yml)
+[![CodeQL](https://github.com/schoedel-learn/catholic-ride-share-app/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/schoedel-learn/catholic-ride-share-app/actions/workflows/codeql-analysis.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 A community-driven ride-sharing application connecting Catholics who need transportation to Mass, Confession, prayer events, and church social functions with volunteer drivers who are willing to help – especially in rural areas where distances can be long.
 
 ## Mission
@@ -7,6 +12,17 @@ A community-driven ride-sharing application connecting Catholics who need transp
 To strengthen Catholic communities by ensuring that transportation is never a barrier to participating in the sacraments and church life.
 
 > **📋 For Stakeholders**: If you're evaluating this project and have questions about risk, liability, or security, please see our comprehensive [Stakeholder Guide](docs/STAKEHOLDER_GUIDE.md) which addresses these concerns in detail.
+
+## 💬 Community & Discussions
+
+We'd love to hear from you! Whether you're a developer, a parish coordinator, a driver, a rider, or just someone who cares about this mission — you're welcome here.
+
+- **[Start or join a Discussion](https://github.com/schoedel-learn/catholic-ride-share-app/discussions)** — ask questions, share ideas, introduce yourself, or talk about anything related to the project.
+- **[Browse open Issues](https://github.com/schoedel-learn/catholic-ride-share-app/issues)** — see what's being worked on and where you can help.
+- **[Read CONTRIBUTING.md](CONTRIBUTING.md)** — learn how to contribute code, docs, or testing.
+- **[Code of Conduct](CODE_OF_CONDUCT.md)** — we follow a charitable, welcoming standard for all interactions.
+
+> 💡 **Not a developer?** Discussions are the best place for you. You can share your perspective on features, report problems you've experienced, or simply encourage the team — all you need is a free GitHub account.
 
 ## What We Are Building
 
@@ -387,7 +403,9 @@ The detailed technical roadmap is maintained in the `braingrid-improvements` doc
 
 - **[Stakeholder Guide](docs/STAKEHOLDER_GUIDE.md)** - Comprehensive information on risk, liability, security, and safety for stakeholders
 - **[Architecture](docs/ARCHITECTURE.md)** - Technical architecture and system design
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - How to set up GitHub Actions secrets and production environment secrets on the VPS
 - **[Contributing](CONTRIBUTING.md)** - How to contribute to the project
+- **[Code of Conduct](CODE_OF_CONDUCT.md)** - Community standards for respectful interaction
 
 ## Support
 

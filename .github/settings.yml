@@ -14,6 +14,7 @@ repository:
   has_projects: true
   has_wiki: false
   has_downloads: true
+  has_discussions: true
   
   # Pull Requests
   allow_squash_merge: true
