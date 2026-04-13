@@ -54,14 +54,14 @@ jobs:
 
     # Upload security reports as artifacts
     - name: Upload Bandit report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       if: always()
       with:
         name: bandit-security-report
         path: backend/bandit-report.json
 
     - name: Upload Safety report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       if: always()
       with:
         name: safety-security-report
