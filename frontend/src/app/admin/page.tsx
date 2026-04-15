@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  approveDriver,
   listDrivers,
+  rejectDriver,
   verifyDriver,
   getParishStats,
   type DriverProfileResponse,
@@ -20,7 +22,7 @@ export default function AdminDashboardPage() {
   const [dataLoading, setDataLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  
+
   // Edit state
   const [editingDriver, setEditingDriver] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({
@@ -30,6 +32,9 @@ export default function AdminDashboardPage() {
     admin_notes: "",
   });
   const [saveLoading, setSaveLoading] = useState(false);
+
+  // Quick approve/reject
+  const [quickActionId, setQuickActionId] = useState<number | null>(null);
 
   const isGlobalAdmin = user?.role === "admin";
   const isCoordinator = user?.role === "coordinator";
@@ -68,12 +73,12 @@ export default function AdminDashboardPage() {
 
   const handleEditClick = (driver: DriverProfileResponse) => {
     setEditingDriver(driver.user_id);
-    
+
     const formatDate = (dateString?: string | null) => {
       if (!dateString) return "";
-      return new Date(dateString).toISOString().split('T')[0];
+      return new Date(dateString).toISOString().split("T")[0];
     };
-    
+
     setEditForm({
       background_check_status: driver.background_check_status || "pending",
       training_completed_date: formatDate(driver.training_completed_date),
@@ -93,10 +98,9 @@ export default function AdminDashboardPage() {
     setMessage(null);
 
     try {
-      // Build payload — coordinators CANNOT send background_check_status
       const payload: Record<string, unknown> = {
-        training_completed_date: editForm.training_completed_date 
-          ? new Date(editForm.training_completed_date).toISOString() 
+        training_completed_date: editForm.training_completed_date
+          ? new Date(editForm.training_completed_date).toISOString()
           : null,
         training_expiration_date: editForm.training_expiration_date
           ? new Date(editForm.training_expiration_date).toISOString()
@@ -104,23 +108,59 @@ export default function AdminDashboardPage() {
         admin_notes: editForm.admin_notes,
       };
 
-      // Only admins include background_check_status
       if (isGlobalAdmin) {
         payload.background_check_status = editForm.background_check_status;
       }
 
-      const updated = await verifyDriver(token, userId, payload as Parameters<typeof verifyDriver>[2]);
-      
-      setDrivers((prev) => 
-        prev.map((drv) => (drv.user_id === userId ? updated : drv))
+      const updated = await verifyDriver(
+        token,
+        userId,
+        payload as Parameters<typeof verifyDriver>[2]
       );
-      
+
+      setDrivers((prev) => prev.map((drv) => (drv.user_id === userId ? updated : drv)));
       setEditingDriver(null);
       setMessage("Driver record updated.");
     } catch (err) {
       setError((err as Error).message || "Failed to update driver.");
     } finally {
       setSaveLoading(false);
+    }
+  };
+
+  const handleApproveDriver = async (userId: number) => {
+    if (!token) return;
+    setQuickActionId(userId);
+    setError(null);
+    setMessage(null);
+    try {
+      const updated = await approveDriver(token, userId);
+      setDrivers((prev) => prev.map((drv) => (drv.user_id === userId ? updated : drv)));
+      setMessage("Driver approved.");
+    } catch (err) {
+      setError((err as Error).message || "Failed to approve driver.");
+    } finally {
+      setQuickActionId(null);
+    }
+  };
+
+  const handleRejectDriver = async (userId: number) => {
+    if (!token) return;
+    const reason = window.prompt(
+      "Optional: enter a reason for rejection (will be stored in admin notes)."
+    );
+    if (reason === null) return; // cancelled
+    setQuickActionId(userId);
+    setError(null);
+    setMessage(null);
+    try {
+      const updated = await rejectDriver(token, userId, reason || undefined);
+      setDrivers((prev) => prev.map((drv) => (drv.user_id === userId ? updated : drv)));
+      setMessage("Driver rejected.");
+    } catch (err) {
+      setError((err as Error).message || "Failed to reject driver.");
+    } finally {
+      setQuickActionId(null);
     }
   };
 
@@ -176,7 +216,9 @@ export default function AdminDashboardPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4 text-center">
               <p className="text-2xl font-bold text-slate-100">{stats.total_drivers}</p>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wide mt-1">Total Drivers</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide mt-1">
+                Total Drivers
+              </p>
             </div>
             <div className="rounded-lg border border-emerald-800/50 bg-emerald-950/20 p-4 text-center">
               <p className="text-2xl font-bold text-emerald-400">{stats.verified_drivers}</p>
@@ -188,7 +230,9 @@ export default function AdminDashboardPage() {
             </div>
             <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4 text-center">
               <p className="text-2xl font-bold text-slate-100">{stats.completed_rides}</p>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wide mt-1">Completed Rides</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide mt-1">
+                Completed Rides
+              </p>
             </div>
           </div>
         )}
@@ -196,7 +240,9 @@ export default function AdminDashboardPage() {
         {/* Coordinator permissions notice */}
         {isCoordinator && (
           <div className="rounded-md border border-blue-800/40 bg-blue-950/20 px-4 py-3 text-xs text-blue-200/80">
-            <strong className="text-blue-300">Coordinator Access:</strong> You can view drivers in your assigned parishes, update safe environment training dates, and add notes. To change a driver&apos;s background check status, contact your diocesan administrator.
+            <strong className="text-blue-300">Coordinator Access:</strong> You can view drivers in
+            your assigned parishes, update safe environment training dates, and add notes. To change
+            a driver&apos;s background check status, contact your diocesan administrator.
           </div>
         )}
 
@@ -227,22 +273,29 @@ export default function AdminDashboardPage() {
                 <tbody className="divide-y divide-slate-800">
                   {drivers.map((driver) => {
                     const isEditing = editingDriver === driver.user_id;
+                    const isQuickActing = quickActionId === driver.user_id;
                     return (
                       <tr key={driver.id} className="hover:bg-slate-800/30">
                         <td className="px-3 py-3 font-semibold text-slate-200">
                           {driver.id} / #{driver.user_id}
                         </td>
                         <td className="px-3 py-3">
-                          {driver.vehicle_make} {driver.vehicle_model} {driver.vehicle_year ? `(${driver.vehicle_year})` : ""}
+                          {driver.vehicle_make} {driver.vehicle_model}{" "}
+                          {driver.vehicle_year ? `(${driver.vehicle_year})` : ""}
                         </td>
-                        
+
                         {isEditing ? (
                           <>
                             <td className="px-3 py-2">
                               {isGlobalAdmin ? (
-                                <select 
+                                <select
                                   value={editForm.background_check_status}
-                                  onChange={(e) => setEditForm({ ...editForm, background_check_status: e.target.value })}
+                                  onChange={(e) =>
+                                    setEditForm({
+                                      ...editForm,
+                                      background_check_status: e.target.value,
+                                    })
+                                  }
                                   className="block w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                 >
                                   <option value="pending">Pending</option>
@@ -250,36 +303,52 @@ export default function AdminDashboardPage() {
                                   <option value="rejected">Rejected</option>
                                 </select>
                               ) : (
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide ${
-                                  driver.background_check_status === 'approved' ? 'bg-emerald-900/50 text-emerald-400' :
-                                  driver.background_check_status === 'rejected' ? 'bg-red-900/50 text-red-400' :
-                                  'bg-amber-900/50 text-amber-400'
-                                }`}>
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide ${
+                                    driver.background_check_status === "approved"
+                                      ? "bg-emerald-900/50 text-emerald-400"
+                                      : driver.background_check_status === "rejected"
+                                        ? "bg-red-900/50 text-red-400"
+                                        : "bg-amber-900/50 text-amber-400"
+                                  }`}
+                                >
                                   {driver.background_check_status}
                                 </span>
                               )}
                             </td>
                             <td className="px-3 py-2">
-                              <input 
+                              <input
                                 type="date"
                                 value={editForm.training_completed_date}
-                                onChange={(e) => setEditForm({ ...editForm, training_completed_date: e.target.value })}
+                                onChange={(e) =>
+                                  setEditForm({
+                                    ...editForm,
+                                    training_completed_date: e.target.value,
+                                  })
+                                }
                                 className="block w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                               />
                             </td>
                             <td className="px-3 py-2">
-                              <input 
+                              <input
                                 type="date"
                                 value={editForm.training_expiration_date}
-                                onChange={(e) => setEditForm({ ...editForm, training_expiration_date: e.target.value })}
+                                onChange={(e) =>
+                                  setEditForm({
+                                    ...editForm,
+                                    training_expiration_date: e.target.value,
+                                  })
+                                }
                                 className="block w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                               />
                             </td>
                             <td className="px-3 py-2">
-                              <input 
+                              <input
                                 type="text"
                                 value={editForm.admin_notes}
-                                onChange={(e) => setEditForm({ ...editForm, admin_notes: e.target.value })}
+                                onChange={(e) =>
+                                  setEditForm({ ...editForm, admin_notes: e.target.value })
+                                }
                                 placeholder="Notes..."
                                 className="block w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                               />
@@ -306,37 +375,70 @@ export default function AdminDashboardPage() {
                         ) : (
                           <>
                             <td className="px-3 py-3">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide ${
-                                driver.background_check_status === 'approved' ? 'bg-emerald-900/50 text-emerald-400' :
-                                driver.background_check_status === 'rejected' ? 'bg-red-900/50 text-red-400' :
-                                'bg-amber-900/50 text-amber-400'
-                              }`}>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide ${
+                                  driver.background_check_status === "approved"
+                                    ? "bg-emerald-900/50 text-emerald-400"
+                                    : driver.background_check_status === "rejected"
+                                      ? "bg-red-900/50 text-red-400"
+                                      : "bg-amber-900/50 text-amber-400"
+                                }`}
+                              >
                                 {driver.background_check_status}
                               </span>
                             </td>
                             <td className="px-3 py-3">
-                              {driver.training_completed_date 
-                                ? new Date(driver.training_completed_date).toLocaleDateString()
-                                : <span className="text-slate-500">None</span>
-                              }
+                              {driver.training_completed_date ? (
+                                new Date(driver.training_completed_date).toLocaleDateString()
+                              ) : (
+                                <span className="text-slate-500">None</span>
+                              )}
                             </td>
                             <td className="px-3 py-3">
-                              {driver.training_expiration_date 
-                                ? new Date(driver.training_expiration_date).toLocaleDateString()
-                                : <span className="text-slate-500">None</span>
-                              }
+                              {driver.training_expiration_date ? (
+                                new Date(driver.training_expiration_date).toLocaleDateString()
+                              ) : (
+                                <span className="text-slate-500">None</span>
+                              )}
                             </td>
-                            <td className="px-3 py-3 truncate max-w-[150px]" title={driver.admin_notes || ""}>
+                            <td
+                              className="px-3 py-3 truncate max-w-[150px]"
+                              title={driver.admin_notes || ""}
+                            >
                               {driver.admin_notes || <span className="text-slate-500">None</span>}
                             </td>
                             <td className="px-3 py-3 text-right">
-                              <button
-                                type="button"
-                                onClick={() => handleEditClick(driver)}
-                                className="text-emerald-400 hover:text-emerald-300 font-medium"
-                              >
-                                {isGlobalAdmin ? "Verify / Edit" : "Update Training"}
-                              </button>
+                              <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                {isGlobalAdmin &&
+                                  driver.background_check_status !== "approved" && (
+                                    <button
+                                      type="button"
+                                      disabled={isQuickActing}
+                                      onClick={() => handleApproveDriver(driver.user_id)}
+                                      className="rounded bg-emerald-700/70 hover:bg-emerald-600 text-emerald-100 font-medium px-2 py-0.5 text-[10px] disabled:opacity-50"
+                                    >
+                                      {isQuickActing ? "…" : "Approve"}
+                                    </button>
+                                  )}
+                                {isGlobalAdmin &&
+                                  driver.background_check_status !== "rejected" && (
+                                    <button
+                                      type="button"
+                                      disabled={isQuickActing}
+                                      onClick={() => handleRejectDriver(driver.user_id)}
+                                      className="rounded bg-red-900/60 hover:bg-red-800 text-red-200 font-medium px-2 py-0.5 text-[10px] disabled:opacity-50"
+                                    >
+                                      {isQuickActing ? "…" : "Reject"}
+                                    </button>
+                                  )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditClick(driver)}
+                                  className="text-emerald-400 hover:text-emerald-300 font-medium text-[11px]"
+                                >
+                                  {isGlobalAdmin ? "Edit" : "Update Training"}
+                                </button>
+                              </div>
                             </td>
                           </>
                         )}
@@ -352,3 +454,4 @@ export default function AdminDashboardPage() {
     </main>
   );
 }
+

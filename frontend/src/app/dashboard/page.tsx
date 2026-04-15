@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
+  cancelRideRequest,
   createRideRequest,
   acceptRideRequest,
   createRideDonationIntent,
@@ -58,6 +59,7 @@ export default function DashboardPage() {
     Record<number, { rating: number; comment: string; donationAmount: string }>
   >({});
   const [reviewSubmittingId, setReviewSubmittingId] = useState<number | null>(null);
+  const [cancelingId, setCancelingId] = useState<number | null>(null);
   const [form, setForm] = useState({
     pickupLat: "37.7749",
     pickupLng: "-122.4194",
@@ -382,6 +384,22 @@ export default function DashboardPage() {
     }
   };
 
+  const handleCancelRideRequest = async (rideRequestId: number) => {
+    if (!token) return;
+    setCancelingId(rideRequestId);
+    setRequestError(null);
+    try {
+      const updated = await cancelRideRequest(token, rideRequestId);
+      setMyRequests((prev) =>
+        prev.map((req) => (req.id === rideRequestId ? updated : req))
+      );
+    } catch (err) {
+      setRequestError((err as Error).message || "Unable to cancel ride request.");
+    } finally {
+      setCancelingId(null);
+    }
+  };
+
   if (loading || (!user && !locError)) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100">
@@ -650,9 +668,21 @@ export default function DashboardPage() {
                         <span className="font-semibold text-slate-200 capitalize">
                           {req.destination_type.replace("_", " ")}
                         </span>
-                        <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">
-                          {req.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">
+                            {req.status}
+                          </span>
+                          {(req.status === "pending" || req.status === "accepted") && (
+                            <button
+                              type="button"
+                              onClick={() => handleCancelRideRequest(req.id)}
+                              disabled={cancelingId === req.id}
+                              className="rounded-md bg-red-900/60 border border-red-700/50 px-2 py-0.5 text-[10px] font-medium text-red-300 hover:bg-red-800/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {cancelingId === req.id ? "Canceling…" : "Cancel"}
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <p className="mt-1 text-[11px] text-slate-400">
                         {new Date(req.requested_datetime).toLocaleString()}

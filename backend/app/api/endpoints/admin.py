@@ -16,7 +16,7 @@ from app.api.deps.auth import get_current_admin_user
 from app.db.session import get_db
 from app.models.driver_profile import DriverProfile
 from app.models.user import User, UserRole
-from app.schemas.driver_profile import DriverProfileResponse, DriverTrainingUpdate
+from app.schemas.driver_profile import DriverProfileResponse, DriverRejectRequest, DriverTrainingUpdate
 
 router = APIRouter()
 
@@ -103,6 +103,67 @@ def verify_driver(
     for field, value in update_data.items():
         setattr(driver, field, value)
 
+    db.commit()
+    db.refresh(driver)
+    return driver
+
+
+@router.post("/drivers/{user_id}/approve", response_model=DriverProfileResponse)
+def approve_driver(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user),
+):
+    """Approve a driver (sets background_check_status to 'approved').
+
+    Only global admins can approve drivers; coordinators cannot.
+    """
+    if not _is_global_admin(current_admin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can approve drivers.",
+        )
+
+    driver = db.query(DriverProfile).filter(DriverProfile.user_id == user_id).first()
+    if not driver:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Driver profile not found for this user",
+        )
+
+    driver.background_check_status = "approved"
+    db.commit()
+    db.refresh(driver)
+    return driver
+
+
+@router.post("/drivers/{user_id}/reject", response_model=DriverProfileResponse)
+def reject_driver(
+    user_id: int,
+    payload: DriverRejectRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user),
+):
+    """Reject a driver application (sets background_check_status to 'rejected').
+
+    An optional reason is stored in admin_notes.  Only global admins can reject drivers.
+    """
+    if not _is_global_admin(current_admin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can reject drivers.",
+        )
+
+    driver = db.query(DriverProfile).filter(DriverProfile.user_id == user_id).first()
+    if not driver:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Driver profile not found for this user",
+        )
+
+    driver.background_check_status = "rejected"
+    if payload.reason:
+        driver.admin_notes = payload.reason
     db.commit()
     db.refresh(driver)
     return driver

@@ -4,7 +4,7 @@ import enum
 from datetime import datetime
 
 from geoalchemy2 import Geography
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.db.session import Base
@@ -59,6 +59,8 @@ class Ride(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     completed_at = Column(DateTime, nullable=True)
+    cancelled_at = Column(DateTime, nullable=True)
+    cancel_reason = Column(String, nullable=True)
 
     # Relationships
     ride_request = relationship("RideRequest")

@@ -73,3 +73,9 @@ class RideStatusUpdate(BaseModel):
     """Payload for updating an in-flight ride status."""
 
     status: RideStatus
+
+
+class RideCancelRequest(BaseModel):
+    """Optional payload for cancelling a ride request."""
+
+    reason: Optional[str] = None
