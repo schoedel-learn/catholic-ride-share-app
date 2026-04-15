@@ -13,8 +13,7 @@ export default function TemplateSelectionPage() {
             Select a nonprofit page source
           </h1>
           <p className="mt-4 text-lg text-slate-700">
-            Choose a source below to preview a static promotional and informational page
-            template.
+            Choose a source below to preview a finished promotional and informational webpage.
           </p>
         </div>
 

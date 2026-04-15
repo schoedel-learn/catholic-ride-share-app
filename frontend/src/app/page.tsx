@@ -75,7 +75,8 @@ export default function HomePage() {
             Need a nonprofit website template?
           </p>
           <p className="mt-2 text-sm text-slate-700">
-            Preview a static promotional page source built from Catholic.Work messaging.
+            Preview the finished Catholic.Work promotional webpage built from the provided source
+            material.
           </p>
           <Link
             href="/templates"
