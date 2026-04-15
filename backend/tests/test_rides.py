@@ -55,6 +55,16 @@ def test_rider_creates_and_driver_accepts_ride(client):
     _verify_user(rider_email)
     _verify_user(driver_email)
 
+    # Create an approved driver profile so _ensure_verified_driver passes.
+    driver_user_id = SessionLocal().query(User).filter(User.email == driver_email).first().id
+    db = SessionLocal()
+    from app.models.driver_profile import DriverProfile as DP
+
+    profile = DP(user_id=driver_user_id, background_check_status="approved")
+    db.add(profile)
+    db.commit()
+    db.close()
+
     rider_token = _login(client, rider_email, password)
     driver_token = _login(client, driver_email, password)
 

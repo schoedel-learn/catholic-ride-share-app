@@ -353,6 +353,8 @@ def update_ride_status(
             "rider_id": ride.rider_id,
             "status": ride.status,
             "accepted_at": ride.accepted_at,
+            "pickup": ride.pickup,
+            "dropoff": ride.dropoff,
             "auto_donation_intent": auto_donation_intent,
         }
     )

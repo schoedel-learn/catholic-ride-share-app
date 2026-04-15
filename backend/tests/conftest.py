@@ -128,6 +128,34 @@ def patch_point_for_sqlite(monkeypatch):
         monkeypatch.setattr(
             rides_api, "_to_point", lambda longitude, latitude: f"POINT({longitude} {latitude})"
         )
+        # Also patch users endpoint which uses WKTElement for location updates.
+        from app.api.endpoints import users as users_api
+        from unittest.mock import MagicMock
+
+        # Replace WKTElement so location updates store a plain string instead.
+        monkeypatch.setattr(users_api, "WKTElement", lambda wkt, srid=4326: wkt)
+
+
+@pytest.fixture(autouse=True)
+def patch_st_distance_for_sqlite(monkeypatch):
+    """Replace ST_Distance (PostGIS) with a constant for SQLite test runs."""
+    if _is_sqlite:
+        from sqlalchemy import func
+
+        class _SQLiteSafeFuncProxy:
+            """Proxy for sqlalchemy.func that substitutes PostGIS functions."""
+
+            def __getattr__(self, name: str):
+                if name == "ST_Distance":
+                    # Return a callable that yields a SQLite-compatible constant
+                    # expression. Using func.abs(0) avoids the "ORDER BY 0" issue
+                    # (SQLite interprets bare integer literals as column indices).
+                    return lambda *args: func.abs(0)
+                return getattr(func, name)
+
+        from app.api.endpoints import rides as rides_api
+
+        monkeypatch.setattr(rides_api, "func", _SQLiteSafeFuncProxy())
 
 
 @pytest.fixture(autouse=True)
