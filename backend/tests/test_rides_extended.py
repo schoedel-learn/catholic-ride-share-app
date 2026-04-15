@@ -34,12 +34,14 @@ def _register_and_verify(
         },
     )
     db = SessionLocal()
-    user = db.query(User).filter(User.email == email).first()
-    assert user is not None
-    user.is_verified = True
-    db.commit()
-    user_id = user.id
-    db.close()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        assert user is not None
+        user.is_verified = True
+        db.commit()
+        user_id = user.id
+    finally:
+        db.close()
     return user_id
 
 

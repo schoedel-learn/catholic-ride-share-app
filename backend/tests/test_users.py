@@ -27,11 +27,13 @@ def _register_and_verify(client, email: str, role: str = "rider") -> str:
 
     # Manually verify the user in DB.
     db = SessionLocal()
-    user = db.query(User).filter(User.email == email).first()
-    assert user is not None
-    user.is_verified = True
-    db.commit()
-    db.close()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        assert user is not None
+        user.is_verified = True
+        db.commit()
+    finally:
+        db.close()
 
     resp = client.post(
         "/api/v1/auth/login",
