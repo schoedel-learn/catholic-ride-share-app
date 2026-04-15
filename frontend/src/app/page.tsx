@@ -70,6 +70,21 @@ export default function HomePage() {
           </Link>
         </div>
 
+        <div className="mx-auto mt-8 max-w-sm border-2 border-dashed border-marian bg-marian-50 p-5">
+          <p className="text-sm font-bold uppercase tracking-wide text-navy">
+            Need a nonprofit website template?
+          </p>
+          <p className="mt-2 text-sm text-slate-700">
+            Preview a static promotional page source built from Catholic.Work messaging.
+          </p>
+          <Link
+            href="/templates"
+            className="mt-4 inline-flex items-center justify-center bg-navy px-4 py-3 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-slate-800"
+          >
+            Browse Templates
+          </Link>
+        </div>
+
         {/* Feature Cards - Flat with colored left borders */}
         <div className="mx-auto mt-12 max-w-lg space-y-0">
           <div className="border-l-8 border-marian bg-slate-100 p-6">
