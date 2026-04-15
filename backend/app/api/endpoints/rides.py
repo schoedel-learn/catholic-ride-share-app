@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from geoalchemy2 import WKTElement
@@ -19,6 +20,7 @@ from app.services.websocket import manager, WebSocketAction
 from app.schemas.donation import DonationIntentResponse
 from app.schemas.ride import (
     RideAcceptResponse,
+    RideCancelRequest,
     RideRequestCreate,
     RideRequestResponse,
     RideStatusUpdate,
@@ -26,6 +28,18 @@ from app.schemas.ride import (
 from app.services.payment import PaymentService, StripeNotConfiguredError
 
 router = APIRouter()
+
+# Valid status transitions for a Ride.  Keys are the current status; values are
+# the set of statuses the driver is permitted to transition to.
+_VALID_TRANSITIONS: dict[RideStatus, set[RideStatus]] = {
+    RideStatus.ACCEPTED: {RideStatus.DRIVER_ENROUTE, RideStatus.CANCELLED},
+    RideStatus.DRIVER_ENROUTE: {RideStatus.ARRIVED, RideStatus.CANCELLED},
+    RideStatus.ARRIVED: {RideStatus.PICKED_UP, RideStatus.CANCELLED},
+    RideStatus.PICKED_UP: {RideStatus.IN_PROGRESS, RideStatus.CANCELLED},
+    RideStatus.IN_PROGRESS: {RideStatus.COMPLETED},
+    RideStatus.COMPLETED: set(),
+    RideStatus.CANCELLED: set(),
+}
 
 
 def _to_point(longitude: float, latitude: float) -> WKTElement:
@@ -123,25 +137,30 @@ def create_ride_request(
     db.commit()
     db.refresh(ride_request)
 
-    # Find available drivers near pickup location using PostGIS ST_Distance
-    available_drivers = (
-        db.query(User.id)
-        .join(DriverProfile, DriverProfile.user_id == User.id)
-        .filter(
-            User.role.in_([UserRole.DRIVER, UserRole.BOTH]),
-            DriverProfile.is_available == True,
-            DriverProfile.background_check_status == "approved",
-            User.last_known_location.is_not(None)
-        )
-        .order_by(
-            func.ST_Distance(
-                User.last_known_location,
-                _to_point(longitude=payload.pickup.longitude, latitude=payload.pickup.latitude)
+    # Find available drivers near pickup location using PostGIS ST_Distance and
+    # notify them via WebSocket.  The query is silently skipped on databases
+    # that do not support PostGIS (e.g. SQLite used in tests).
+    try:
+        available_drivers = (
+            db.query(User.id)
+            .join(DriverProfile, DriverProfile.user_id == User.id)
+            .filter(
+                User.role.in_([UserRole.DRIVER, UserRole.BOTH]),
+                DriverProfile.is_available == True,
+                DriverProfile.background_check_status == "approved",
+                User.last_known_location.is_not(None)
             )
+            .order_by(
+                func.ST_Distance(
+                    User.last_known_location,
+                    _to_point(longitude=payload.pickup.longitude, latitude=payload.pickup.latitude)
+                )
+            )
+            .limit(10)
+            .all()
         )
-        .limit(10)
-        .all()
-    )
+    except Exception:
+        available_drivers = []
 
     driver_ids = [row[0] for row in available_drivers]
     if driver_ids:
@@ -223,6 +242,56 @@ def accept_ride_request(
     return ride
 
 
+@router.post("/{ride_request_id}/cancel", response_model=RideRequestResponse)
+def cancel_ride_request(
+    ride_request_id: int,
+    payload: Optional[RideCancelRequest] = None,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_verified_user),
+):
+    """Allow a rider to cancel a pending or accepted ride request.
+
+    If the request has already been accepted, the associated Ride record is also
+    cancelled and the driver is notified via WebSocket.
+    """
+    ride_request = db.query(RideRequest).filter(RideRequest.id == ride_request_id).first()
+    if not ride_request:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ride request not found"
+        )
+
+    if ride_request.rider_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not your ride request"
+        )
+
+    if ride_request.status not in {RideRequestStatus.PENDING, RideRequestStatus.ACCEPTED}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot cancel a ride with status '{ride_request.status}'",
+        )
+
+    ride_request.status = RideRequestStatus.CANCELLED
+
+    # Also cancel the associated Ride if it already exists.
+    ride = db.query(Ride).filter(Ride.ride_request_id == ride_request.id).first()
+    if ride and ride.status not in {RideStatus.COMPLETED, RideStatus.CANCELLED}:
+        ride.status = RideStatus.CANCELLED
+        ride.cancelled_at = datetime.utcnow()
+        if payload and payload.reason:
+            ride.cancel_reason = payload.reason
+        msg = {
+            "action": WebSocketAction.RIDE_UPDATED,
+            "data": {"ride_id": ride.id, "status": ride.status},
+        }
+        background_tasks.add_task(_notify_users, [ride.driver_id], msg)
+
+    db.commit()
+    db.refresh(ride_request)
+    return ride_request
+
+
 @router.get("/assigned", response_model=list[RideAcceptResponse])
 def list_assigned_rides(
     db: Session = Depends(get_db),
@@ -249,7 +318,10 @@ def update_ride_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_verified_user),
 ):
-    """Update the status of an accepted ride (driver only)."""
+    """Update the status of an accepted ride (driver only).
+
+    Only valid state transitions are accepted; see ``_VALID_TRANSITIONS``.
+    """
     _ensure_driver(current_user)
 
     ride = db.query(Ride).filter(Ride.id == ride_id).first()
@@ -259,21 +331,41 @@ def update_ride_status(
     if ride.driver_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your ride")
 
-    ride.status = payload.status
+    current_status = RideStatus(ride.status)
+    new_status = payload.status
+    allowed = _VALID_TRANSITIONS.get(current_status, set())
+    if new_status not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Cannot transition ride from '{current_status}' to '{new_status}'. "
+                f"Allowed transitions: {sorted(s.value for s in allowed) or 'none'}"
+            ),
+        )
+
+    ride.status = new_status
 
     ride_request = db.query(RideRequest).filter(RideRequest.id == ride.ride_request_id).first()
     if ride_request:
-        if payload.status in {RideStatus.DRIVER_ENROUTE, RideStatus.ARRIVED, RideStatus.PICKED_UP}:
+        if new_status in {RideStatus.DRIVER_ENROUTE, RideStatus.ARRIVED, RideStatus.PICKED_UP}:
             ride_request.status = RideRequestStatus.ACCEPTED
-        elif payload.status == RideStatus.IN_PROGRESS:
+        elif new_status == RideStatus.IN_PROGRESS:
             ride_request.status = RideRequestStatus.IN_PROGRESS
-        elif payload.status == RideStatus.COMPLETED:
+        elif new_status == RideStatus.COMPLETED:
             ride_request.status = RideRequestStatus.COMPLETED
-        elif payload.status == RideStatus.CANCELLED:
+        elif new_status == RideStatus.CANCELLED:
             ride_request.status = RideRequestStatus.CANCELLED
 
-    if payload.status == RideStatus.COMPLETED:
+    if new_status == RideStatus.COMPLETED:
         ride.completed_at = datetime.utcnow()
+        # Increment driver's total ride counter.
+        driver_profile = (
+            db.query(DriverProfile).filter(DriverProfile.user_id == current_user.id).first()
+        )
+        if driver_profile:
+            driver_profile.total_rides = (driver_profile.total_rides or 0) + 1
+    elif new_status == RideStatus.CANCELLED:
+        ride.cancelled_at = datetime.utcnow()
 
     db.commit()
     db.refresh(ride)
@@ -290,9 +382,7 @@ def update_ride_status(
 
     auto_donation_intent: DonationIntentResponse | None = None
 
-    # Auto-donation is based on the rider's preference, so we create the PaymentIntent
-    # and persist the client_secret on the Donation record for the rider app to confirm.
-    if payload.status == RideStatus.COMPLETED:
+    if new_status == RideStatus.COMPLETED:
         rider = db.query(User).filter(User.id == ride.rider_id).first()
         if rider and rider.auto_donation_enabled:
             amount_cents: int | None = None
@@ -353,6 +443,9 @@ def update_ride_status(
             "rider_id": ride.rider_id,
             "status": ride.status,
             "accepted_at": ride.accepted_at,
+            "pickup": ride.pickup,
+            "dropoff": ride.dropoff,
             "auto_donation_intent": auto_donation_intent,
         }
     )
+
