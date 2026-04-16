@@ -481,6 +481,108 @@ export async function updateDriverAvailability(
   });
 }
 
+export async function createDriverProfile(
+  token: string,
+  data: {
+    vehicle_make?: string;
+    vehicle_model?: string;
+    vehicle_year?: number;
+    vehicle_color?: string;
+    license_plate?: string;
+    vehicle_capacity?: number;
+  }
+): Promise<DriverProfileResponse> {
+  return apiFetch<DriverProfileResponse>("/drivers/profile", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateDriverProfile(
+  token: string,
+  data: {
+    vehicle_make?: string;
+    vehicle_model?: string;
+    vehicle_year?: number;
+    vehicle_color?: string;
+    license_plate?: string;
+    vehicle_capacity?: number;
+  }
+): Promise<DriverProfileResponse> {
+  return apiFetch<DriverProfileResponse>("/drivers/me", {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+}
+
+export async function cancelRideRequest(
+  token: string,
+  rideRequestId: number,
+  reason?: string
+): Promise<RideRequest> {
+  return apiFetch<RideRequest>(`/rides/${rideRequestId}/cancel`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ reason: reason ?? null }),
+  });
+}
+
+// Public-facing driver profile (no license plate)
+export interface AvailableDriver {
+  id: number;
+  user_id: number;
+  vehicle_make?: string | null;
+  vehicle_model?: string | null;
+  vehicle_year?: number | null;
+  vehicle_color?: string | null;
+  vehicle_capacity: number;
+  total_rides: number;
+  average_rating: number;
+}
+
+export async function getAvailableDrivers(
+  token: string,
+  options?: {
+    latitude?: number;
+    longitude?: number;
+    radiusMiles?: number;
+  }
+): Promise<AvailableDriver[]> {
+  const params = new URLSearchParams();
+  if (options?.latitude !== undefined) params.set("latitude", String(options.latitude));
+  if (options?.longitude !== undefined) params.set("longitude", String(options.longitude));
+  if (options?.radiusMiles !== undefined)
+    params.set("radius_miles", String(options.radiusMiles));
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<AvailableDriver[]>(`/drivers/available${qs}`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function approveDriver(
+  token: string,
+  userId: number
+): Promise<DriverProfileResponse> {
+  return apiFetch<DriverProfileResponse>(`/admin/drivers/${userId}/approve`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+}
+
+export async function rejectDriver(
+  token: string,
+  userId: number,
+  reason?: string
+): Promise<DriverProfileResponse> {
+  return apiFetch<DriverProfileResponse>(`/admin/drivers/${userId}/reject`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ reason: reason ?? null }),
+  });
+}
+
 export async function getDioceses(): Promise<Diocese[]> {
   return apiFetch<Diocese[]>("/dioceses/");
 }

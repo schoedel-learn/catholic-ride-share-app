@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DriverProfileBase(BaseModel):
@@ -11,14 +11,14 @@ class DriverProfileBase(BaseModel):
 
     vehicle_make: Optional[str] = None
     vehicle_model: Optional[str] = None
-    vehicle_year: Optional[int] = None
+    vehicle_year: Optional[int] = Field(default=None, ge=1980, le=2100)
     vehicle_color: Optional[str] = None
     license_plate: Optional[str] = None
-    vehicle_capacity: int = 4
+    vehicle_capacity: int = Field(default=4, ge=1, le=15)
 
 
 class DriverProfileCreate(DriverProfileBase):
-    """Driver profile creation schema."""
+    """Driver profile creation/upsert schema."""
 
     pass
 
@@ -31,19 +31,28 @@ class DriverProfileUpdate(DriverProfileBase):
 
 class DriverAvailabilityUpdate(BaseModel):
     """Driver availability toggle schema."""
+
     is_available: bool
+
 
 class DriverTrainingUpdate(BaseModel):
     """Driver training status update schema for admins."""
 
     background_check_status: Optional[str] = None
+    insurance_verified: Optional[bool] = None
     training_completed_date: Optional[datetime] = None
     training_expiration_date: Optional[datetime] = None
     admin_notes: Optional[str] = None
 
 
+class DriverRejectRequest(BaseModel):
+    """Request body for admin driver rejection."""
+
+    reason: Optional[str] = None
+
+
 class DriverProfileResponse(DriverProfileBase):
-    """Driver profile response schema."""
+    """Driver profile response schema (full, includes sensitive fields)."""
 
     id: int
     user_id: int
@@ -57,5 +66,24 @@ class DriverProfileResponse(DriverProfileBase):
     average_rating: float
     created_at: datetime
     updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AvailableDriverResponse(BaseModel):
+    """Public-facing driver response for rider's driver discovery view.
+
+    Intentionally omits license plate and other sensitive/operational fields.
+    """
+
+    id: int
+    user_id: int
+    vehicle_make: Optional[str] = None
+    vehicle_model: Optional[str] = None
+    vehicle_year: Optional[int] = None
+    vehicle_color: Optional[str] = None
+    vehicle_capacity: int
+    total_rides: int
+    average_rating: float
 
     model_config = ConfigDict(from_attributes=True)
