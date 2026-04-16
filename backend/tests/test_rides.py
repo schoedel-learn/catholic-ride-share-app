@@ -257,4 +257,3 @@ def test_invalid_status_transition_rejected(client):
         headers={"Authorization": f"Bearer {driver_token}"},
     )
     assert bad_resp.status_code == status.HTTP_400_BAD_REQUEST
-

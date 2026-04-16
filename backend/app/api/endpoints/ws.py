@@ -1,10 +1,12 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from jose import JWTError, jwt
+
 from app.core.config import settings
 from app.schemas.token import TokenPayload
 from app.services.websocket import manager
 
 router = APIRouter()
+
 
 async def get_token_user_id(token: str) -> int | None:
     try:
@@ -17,6 +19,7 @@ async def get_token_user_id(token: str) -> int | None:
         return token_data.sub
     except JWTError:
         return None
+
 
 @router.websocket("/")
 async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):

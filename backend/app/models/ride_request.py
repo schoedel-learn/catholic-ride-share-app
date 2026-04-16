@@ -88,4 +88,3 @@ class RideRequest(Base):
             return {"latitude": point.y, "longitude": point.x}
         except Exception:
             return {"latitude": 0.0, "longitude": 0.0}
-

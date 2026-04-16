@@ -87,4 +87,3 @@ class AvailableDriverResponse(BaseModel):
     average_rating: float
 
     model_config = ConfigDict(from_attributes=True)
-

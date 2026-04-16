@@ -6,7 +6,6 @@ from app.db.session import SessionLocal
 from app.models.driver_profile import DriverProfile
 from app.models.user import User
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -108,9 +107,7 @@ def test_admin_can_approve_driver(client):
     _make_admin(admin_email)
 
     driver_email = "drv_toapprove@example.com"
-    _register(
-        client, email=driver_email, phone="+15552220002", password=password, role="driver"
-    )
+    _register(client, email=driver_email, phone="+15552220002", password=password, role="driver")
     _verify(driver_email)
     _ensure_driver_profile(driver_email)
     driver_user_id = _get_user_id(driver_email)
@@ -134,9 +131,7 @@ def test_admin_can_reject_driver_with_reason(client):
     _make_admin(admin_email)
 
     driver_email = "drv_toreject@example.com"
-    _register(
-        client, email=driver_email, phone="+15552220004", password=password, role="driver"
-    )
+    _register(client, email=driver_email, phone="+15552220004", password=password, role="driver")
     _verify(driver_email)
     _ensure_driver_profile(driver_email)
     driver_user_id = _get_user_id(driver_email)
@@ -163,9 +158,7 @@ def test_coordinator_cannot_approve_driver(client):
     _make_coordinator(coord_email)
 
     driver_email = "drv_coord_test@example.com"
-    _register(
-        client, email=driver_email, phone="+15552220006", password=password, role="driver"
-    )
+    _register(client, email=driver_email, phone="+15552220006", password=password, role="driver")
     _verify(driver_email)
     _ensure_driver_profile(driver_email)
     driver_user_id = _get_user_id(driver_email)
@@ -226,9 +219,7 @@ def test_admin_can_update_driver_training(client):
     _make_admin(admin_email)
 
     driver_email = "drv_training@example.com"
-    _register(
-        client, email=driver_email, phone="+15552220010", password=password, role="driver"
-    )
+    _register(client, email=driver_email, phone="+15552220010", password=password, role="driver")
     _verify(driver_email)
     _ensure_driver_profile(driver_email)
     driver_user_id = _get_user_id(driver_email)
@@ -258,9 +249,7 @@ def test_coordinator_cannot_change_background_check_status(client):
     _make_coordinator(coord_email)
 
     driver_email = "drv_bgcheck@example.com"
-    _register(
-        client, email=driver_email, phone="+15552220012", password=password, role="driver"
-    )
+    _register(client, email=driver_email, phone="+15552220012", password=password, role="driver")
     _verify(driver_email)
     _ensure_driver_profile(driver_email)
     driver_user_id = _get_user_id(driver_email)

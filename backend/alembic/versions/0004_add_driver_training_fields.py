@@ -6,6 +6,7 @@ Create Date: 2026-04-01
 """
 
 import sqlalchemy as sa
+
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -25,9 +26,7 @@ def upgrade() -> None:
         "driver_profiles",
         sa.Column("training_expiration_date", sa.DateTime(), nullable=True),
     )
-    op.add_column(
-        "driver_profiles", sa.Column("admin_notes", sa.String(), nullable=True)
-    )
+    op.add_column("driver_profiles", sa.Column("admin_notes", sa.String(), nullable=True))
 
 
 def downgrade() -> None:

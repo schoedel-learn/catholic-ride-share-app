@@ -133,8 +133,8 @@ def fake_redis(monkeypatch):
 def patch_point_for_sqlite(monkeypatch):
     """Avoid WKTElement binding issues on SQLite by using plain strings."""
     if _is_sqlite:
-        from app.api.endpoints import rides as rides_api
         from app.api.endpoints import drivers as drivers_api
+        from app.api.endpoints import rides as rides_api
 
         monkeypatch.setattr(
             rides_api, "_to_point", lambda longitude, latitude: f"POINT({longitude} {latitude})"

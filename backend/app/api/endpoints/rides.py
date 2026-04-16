@@ -7,16 +7,15 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from geoalchemy2 import WKTElement
-from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from app.api.deps.auth import get_current_verified_user
 from app.db.session import get_db
+from app.models.driver_profile import DriverProfile
 from app.models.ride import Ride, RideStatus
 from app.models.ride_request import RideRequest, RideRequestStatus
 from app.models.user import User, UserRole
-from app.models.driver_profile import DriverProfile
-from app.services.websocket import manager, WebSocketAction
 from app.schemas.donation import DonationIntentResponse
 from app.schemas.ride import (
     RideAcceptResponse,
@@ -26,6 +25,7 @@ from app.schemas.ride import (
     RideStatusUpdate,
 )
 from app.services.payment import PaymentService, StripeNotConfiguredError
+from app.services.websocket import WebSocketAction, manager
 
 router = APIRouter()
 
@@ -45,6 +45,7 @@ _VALID_TRANSITIONS: dict[RideStatus, set[RideStatus]] = {
 def _to_point(longitude: float, latitude: float) -> WKTElement:
     """Convert lat/long to PostGIS-compatible POINT."""
     return WKTElement(f"POINT({longitude} {latitude})", srid=4326)
+
 
 async def _notify_users(user_ids: list[int], message: dict):
     """Notify users via WebSocket."""
@@ -146,14 +147,14 @@ def create_ride_request(
             .join(DriverProfile, DriverProfile.user_id == User.id)
             .filter(
                 User.role.in_([UserRole.DRIVER, UserRole.BOTH]),
-                DriverProfile.is_available == True,
+                DriverProfile.is_available.is_(True),
                 DriverProfile.background_check_status == "approved",
-                User.last_known_location.is_not(None)
+                User.last_known_location.is_not(None),
             )
             .order_by(
                 func.ST_Distance(
                     User.last_known_location,
-                    _to_point(longitude=payload.pickup.longitude, latitude=payload.pickup.latitude)
+                    _to_point(longitude=payload.pickup.longitude, latitude=payload.pickup.latitude),
                 )
             )
             .limit(10)
@@ -171,7 +172,7 @@ def create_ride_request(
                 "pickup": {"lat": payload.pickup.latitude, "lng": payload.pickup.longitude},
                 "destination_type": payload.destination_type,
                 "passenger_count": payload.passenger_count,
-            }
+            },
         }
         background_tasks.add_task(_notify_users, driver_ids, msg)
 
@@ -235,7 +236,7 @@ def accept_ride_request(
         "data": {
             "ride_id": ride.id,
             "driver_name": current_user.full_name,
-        }
+        },
     }
     background_tasks.add_task(_notify_users, [ride_request.rider_id], msg)
 
@@ -257,14 +258,10 @@ def cancel_ride_request(
     """
     ride_request = db.query(RideRequest).filter(RideRequest.id == ride_request_id).first()
     if not ride_request:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Ride request not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ride request not found")
 
     if ride_request.rider_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not your ride request"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your ride request")
 
     if ride_request.status not in {RideRequestStatus.PENDING, RideRequestStatus.ACCEPTED}:
         raise HTTPException(
@@ -376,7 +373,7 @@ def update_ride_status(
         "data": {
             "ride_id": ride.id,
             "status": ride.status,
-        }
+        },
     }
     background_tasks.add_task(_notify_users, [ride.rider_id], msg)
 
@@ -448,4 +445,3 @@ def update_ride_status(
             "auto_donation_intent": auto_donation_intent,
         }
     )
-

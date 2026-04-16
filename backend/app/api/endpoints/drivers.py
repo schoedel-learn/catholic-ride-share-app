@@ -183,4 +183,3 @@ def get_available_drivers(
             pass
 
     return query.limit(50).all()
-
