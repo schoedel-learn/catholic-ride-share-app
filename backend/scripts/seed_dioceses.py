@@ -6,11 +6,11 @@ from pathlib import Path
 # Add the backend directory to Python path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session  # noqa: E402
 
-from app.db.session import Base, SessionLocal, engine
-from app.models.diocese import Diocese
-from app.models.parish import Parish
+from app.db.session import Base, SessionLocal, engine  # noqa: E402
+from app.models.diocese import Diocese  # noqa: E402
+from app.models.parish import Parish  # noqa: E402
 
 # Force table creation if Alembic hasn't been run locally
 Base.metadata.create_all(bind=engine)
