@@ -2,6 +2,8 @@
 
 Welcome to the comprehensive documentation for Catholic Ride Share, a community-driven ride-sharing application for the Catholic community.
 
+Catholic Ride Share is open source and intended to be installed, operated, and customized by parishes, dioceses, and Catholic organizations running their own local instances.
+
 ## 📚 Documentation Index
 
 ### Getting Started
