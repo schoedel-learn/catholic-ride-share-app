@@ -36,8 +36,8 @@ jobs:
     - name: Run Bandit security scan
       run: |
         cd backend
-        bandit -r app/ -f json -o bandit-report.json
-        bandit -r app/ -f txt
+        bandit -r app/ -c pyproject.toml -ll -ii -f json -o bandit-report.json
+        bandit -r app/ -c pyproject.toml -ll -ii -f txt
 
     # Safety - Check for known security vulnerabilities
     - name: Run Safety check
