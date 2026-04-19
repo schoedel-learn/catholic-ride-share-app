@@ -6,6 +6,16 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class DriverVerificationStatus(BaseModel):
+    """Lightweight driver verification summary returned to the driver themselves."""
+
+    status: str  # "no_profile" | "pending" | "approved" | "rejected"
+    message: str
+    rejection_reason: Optional[str] = None
+    training_completed_date: Optional[datetime] = None
+    training_expiration_date: Optional[datetime] = None
+
+
 class DriverProfileBase(BaseModel):
     """Base driver profile schema."""
 
@@ -87,4 +97,3 @@ class AvailableDriverResponse(BaseModel):
     average_rating: float
 
     model_config = ConfigDict(from_attributes=True)
-

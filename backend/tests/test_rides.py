@@ -258,3 +258,153 @@ def test_invalid_status_transition_rejected(client):
     )
     assert bad_resp.status_code == status.HTTP_400_BAD_REQUEST
 
+
+def test_ride_messaging(client):
+    """Rider and driver can exchange messages within an active ride."""
+    rider_email = "rider_msg@example.com"
+    driver_email = "driver_msg@example.com"
+    password = "StrongPass123!"
+
+    for payload in [
+        {
+            "email": rider_email,
+            "phone": "+15550000099",
+            "password": password,
+            "first_name": "RiderMsg",
+            "last_name": "One",
+            "role": "rider",
+        },
+        {
+            "email": driver_email,
+            "phone": "+15550000098",
+            "password": password,
+            "first_name": "DriverMsg",
+            "last_name": "One",
+            "role": "driver",
+        },
+    ]:
+        r = client.post("/api/v1/auth/register", json=payload)
+        assert r.status_code == status.HTTP_201_CREATED
+
+    _verify_user(rider_email)
+    _verify_user(driver_email)
+    _approve_driver(driver_email)
+
+    rider_token = _login(client, rider_email, password)
+    driver_token = _login(client, driver_email, password)
+
+    # Create a ride request
+    create_resp = client.post(
+        "/api/v1/rides/",
+        json={
+            "pickup": {"latitude": 37.77, "longitude": -122.41},
+            "dropoff": {"latitude": 37.78, "longitude": -122.40},
+            "destination_type": "mass",
+            "requested_datetime": (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+        },
+        headers={"Authorization": f"Bearer {rider_token}"},
+    )
+    assert create_resp.status_code == status.HTTP_201_CREATED
+    ride_request_id = create_resp.json()["id"]
+
+    # Driver accepts
+    accept_resp = client.post(
+        f"/api/v1/rides/{ride_request_id}/accept",
+        headers={"Authorization": f"Bearer {driver_token}"},
+    )
+    assert accept_resp.status_code == status.HTTP_201_CREATED
+    ride_id = accept_resp.json()["id"]
+
+    # Rider sends a message
+    send_resp = client.post(
+        f"/api/v1/rides/{ride_id}/messages",
+        json={"content": "I'm at the front door!"},
+        headers={"Authorization": f"Bearer {rider_token}"},
+    )
+    assert send_resp.status_code == status.HTTP_201_CREATED
+    msg = send_resp.json()
+    assert msg["content"] == "I'm at the front door!"
+    assert msg["ride_id"] == ride_id
+
+    # Driver reads the thread
+    list_resp = client.get(
+        f"/api/v1/rides/{ride_id}/messages",
+        headers={"Authorization": f"Bearer {driver_token}"},
+    )
+    assert list_resp.status_code == status.HTTP_200_OK
+    thread = list_resp.json()
+    assert len(thread) == 1
+    assert thread[0]["content"] == "I'm at the front door!"
+
+    # Third party is forbidden
+    other_resp = client.get(
+        f"/api/v1/rides/{ride_id}/messages",
+        headers={"Authorization": f"Bearer {rider_token}"},  # rider IS allowed
+    )
+    assert other_resp.status_code == status.HTTP_200_OK
+
+    # Register a stranger and verify they cannot see the thread
+    r2 = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "stranger@example.com",
+            "phone": "+15550000097",
+            "password": password,
+            "first_name": "S",
+            "last_name": "T",
+            "role": "rider",
+        },
+    )
+    assert r2.status_code == status.HTTP_201_CREATED
+    _verify_user("stranger@example.com")
+    stranger_token = _login(client, "stranger@example.com", password)
+
+    forbidden_resp = client.get(
+        f"/api/v1/rides/{ride_id}/messages",
+        headers={"Authorization": f"Bearer {stranger_token}"},
+    )
+    assert forbidden_resp.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_driver_verification_status_endpoint(client):
+    """GET /drivers/me/verification-status returns the correct state."""
+    email = "driver_status@example.com"
+    password = "StrongPass123!"
+
+    r = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": email,
+            "phone": "+15550000096",
+            "password": password,
+            "first_name": "DrvSt",
+            "last_name": "Test",
+            "role": "driver",
+        },
+    )
+    assert r.status_code == status.HTTP_201_CREATED
+    _verify_user(email)
+    token = _login(client, email, password)
+
+    # No profile yet
+    resp = client.get(
+        "/api/v1/drivers/me/verification-status",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == status.HTTP_200_OK
+    data = resp.json()
+    assert data["status"] == "no_profile"
+
+    # Create a profile
+    client.post(
+        "/api/v1/drivers/profile",
+        json={"vehicle_make": "Ford", "vehicle_model": "Transit", "vehicle_capacity": 8},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    resp2 = client.get(
+        "/api/v1/drivers/me/verification-status",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp2.status_code == status.HTTP_200_OK
+    assert resp2.json()["status"] == "pending"

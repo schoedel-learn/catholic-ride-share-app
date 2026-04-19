@@ -6,7 +6,6 @@ from app.db.session import SessionLocal
 from app.models.driver_profile import DriverProfile
 from app.models.user import User
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -67,7 +66,9 @@ def test_driver_can_create_and_update_profile(client):
     """POST /drivers/profile creates a profile; calling it again updates it."""
     email = "dp_create@example.com"
     password = "StrongPass123!"
-    _register_and_verify(client, email=email, phone="+15551110001", password=password, role="driver")
+    _register_and_verify(
+        client, email=email, phone="+15551110001", password=password, role="driver"
+    )
     token = _login(client, email, password)
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -107,9 +108,7 @@ def test_non_driver_cannot_create_profile(client):
     """A rider role should be refused when calling POST /drivers/profile."""
     email = "rider_no_dp@example.com"
     password = "StrongPass123!"
-    _register_and_verify(
-        client, email=email, phone="+15551110002", password=password, role="rider"
-    )
+    _register_and_verify(client, email=email, phone="+15551110002", password=password, role="rider")
     token = _login(client, email, password)
 
     resp = client.post(
@@ -206,9 +205,7 @@ def test_get_available_drivers_empty_initially(client):
     """GET /drivers/available returns an empty list when no approved drivers exist."""
     email = "rider_discovery@example.com"
     password = "StrongPass123!"
-    _register_and_verify(
-        client, email=email, phone="+15551110006", password=password, role="rider"
-    )
+    _register_and_verify(client, email=email, phone="+15551110006", password=password, role="rider")
     token = _login(client, email, password)
 
     resp = client.get(

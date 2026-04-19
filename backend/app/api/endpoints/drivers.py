@@ -19,6 +19,7 @@ from app.schemas.driver_profile import (
     DriverProfileCreate,
     DriverProfileResponse,
     DriverProfileUpdate,
+    DriverVerificationStatus,
 )
 
 router = APIRouter()
@@ -139,6 +140,44 @@ def update_driver_availability(
     return driver
 
 
+@router.get("/me/verification-status", response_model=DriverVerificationStatus)
+def get_verification_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_verified_user),
+):
+    """Return a human-friendly summary of the current driver's verification state.
+
+    Possible ``status`` values:
+    - ``no_profile``: the driver has never submitted a profile.
+    - ``pending``: a profile exists but has not been reviewed.
+    - ``approved``: admin has approved the driver.
+    - ``rejected``: admin has rejected the application; ``rejection_reason``
+      is populated when available.
+    """
+    _require_driver_role(current_user)
+
+    driver = db.query(DriverProfile).filter(DriverProfile.user_id == current_user.id).first()
+    if not driver:
+        return DriverVerificationStatus(
+            status="no_profile",
+            message="You have not submitted a driver profile yet.",
+        )
+
+    status_map = {
+        "pending": "Your application is under review.",
+        "approved": "Your account is verified. You can accept ride requests.",
+        "rejected": "Your application was not approved.",
+    }
+    bcs = driver.background_check_status or "pending"
+    return DriverVerificationStatus(
+        status=bcs,
+        message=status_map.get(bcs, "Unknown status."),
+        rejection_reason=driver.admin_notes if bcs == "rejected" else None,
+        training_completed_date=driver.training_completed_date,
+        training_expiration_date=driver.training_expiration_date,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Driver discovery
 # ---------------------------------------------------------------------------
@@ -183,4 +222,3 @@ def get_available_drivers(
             pass
 
     return query.limit(50).all()
-

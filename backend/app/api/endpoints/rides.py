@@ -7,16 +7,15 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from geoalchemy2 import WKTElement
-from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from app.api.deps.auth import get_current_verified_user
 from app.db.session import get_db
+from app.models.driver_profile import DriverProfile
 from app.models.ride import Ride, RideStatus
 from app.models.ride_request import RideRequest, RideRequestStatus
 from app.models.user import User, UserRole
-from app.models.driver_profile import DriverProfile
-from app.services.websocket import manager, WebSocketAction
 from app.schemas.donation import DonationIntentResponse
 from app.schemas.ride import (
     RideAcceptResponse,
@@ -25,7 +24,9 @@ from app.schemas.ride import (
     RideRequestResponse,
     RideStatusUpdate,
 )
+from app.schemas.ride_message import RideMessageCreate, RideMessageResponse
 from app.services.payment import PaymentService, StripeNotConfiguredError
+from app.services.websocket import WebSocketAction, manager
 
 router = APIRouter()
 
@@ -45,6 +46,7 @@ _VALID_TRANSITIONS: dict[RideStatus, set[RideStatus]] = {
 def _to_point(longitude: float, latitude: float) -> WKTElement:
     """Convert lat/long to PostGIS-compatible POINT."""
     return WKTElement(f"POINT({longitude} {latitude})", srid=4326)
+
 
 async def _notify_users(user_ids: list[int], message: dict):
     """Notify users via WebSocket."""
@@ -146,14 +148,14 @@ def create_ride_request(
             .join(DriverProfile, DriverProfile.user_id == User.id)
             .filter(
                 User.role.in_([UserRole.DRIVER, UserRole.BOTH]),
-                DriverProfile.is_available == True,
+                DriverProfile.is_available.is_(True),
                 DriverProfile.background_check_status == "approved",
-                User.last_known_location.is_not(None)
+                User.last_known_location.is_not(None),
             )
             .order_by(
                 func.ST_Distance(
                     User.last_known_location,
-                    _to_point(longitude=payload.pickup.longitude, latitude=payload.pickup.latitude)
+                    _to_point(longitude=payload.pickup.longitude, latitude=payload.pickup.latitude),
                 )
             )
             .limit(10)
@@ -171,7 +173,7 @@ def create_ride_request(
                 "pickup": {"lat": payload.pickup.latitude, "lng": payload.pickup.longitude},
                 "destination_type": payload.destination_type,
                 "passenger_count": payload.passenger_count,
-            }
+            },
         }
         background_tasks.add_task(_notify_users, driver_ids, msg)
 
@@ -235,7 +237,7 @@ def accept_ride_request(
         "data": {
             "ride_id": ride.id,
             "driver_name": current_user.full_name,
-        }
+        },
     }
     background_tasks.add_task(_notify_users, [ride_request.rider_id], msg)
 
@@ -257,14 +259,10 @@ def cancel_ride_request(
     """
     ride_request = db.query(RideRequest).filter(RideRequest.id == ride_request_id).first()
     if not ride_request:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Ride request not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ride request not found")
 
     if ride_request.rider_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not your ride request"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your ride request")
 
     if ride_request.status not in {RideRequestStatus.PENDING, RideRequestStatus.ACCEPTED}:
         raise HTTPException(
@@ -376,7 +374,7 @@ def update_ride_status(
         "data": {
             "ride_id": ride.id,
             "status": ride.status,
-        }
+        },
     }
     background_tasks.add_task(_notify_users, [ride.rider_id], msg)
 
@@ -449,3 +447,116 @@ def update_ride_status(
         }
     )
 
+
+# ---------------------------------------------------------------------------
+# Ride-scoped messaging
+# ---------------------------------------------------------------------------
+
+
+def _get_active_ride(ride_id: int, current_user: User, db: Session) -> Ride:
+    """Fetch a ride and verify the caller is a participant or admin."""
+    from app.models.ride import Ride as _Ride
+
+    ride = db.query(_Ride).filter(_Ride.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ride not found")
+
+    is_participant = current_user.id in {ride.rider_id, ride.driver_id}
+    is_admin = current_user.role in {UserRole.ADMIN, UserRole.COORDINATOR}
+    if not (is_participant or is_admin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a participant in this ride",
+        )
+    return ride
+
+
+@router.post(
+    "/{ride_id}/messages",
+    response_model=RideMessageResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def send_ride_message(
+    ride_id: int,
+    payload: RideMessageCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_verified_user),
+):
+    """Send a chat message within an active ride.
+
+    Only the rider, the assigned driver, and admins may send messages.
+    Messages are rejected once a ride reaches ``completed`` or ``cancelled``
+    status to keep threads scoped to the active journey.
+    """
+    from app.models.ride_message import RideMessage
+
+    ride = _get_active_ride(ride_id, current_user, db)
+
+    if ride.status in {RideStatus.COMPLETED, RideStatus.CANCELLED}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot send messages on a completed or cancelled ride",
+        )
+
+    msg = RideMessage(
+        ride_id=ride.id,
+        sender_id=current_user.id,
+        content=payload.content,
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+
+    # Notify the other participant over WebSocket.
+    recipient_id = ride.driver_id if current_user.id == ride.rider_id else ride.rider_id
+    try:
+        import asyncio
+
+        asyncio.get_event_loop().run_until_complete(
+            manager.send_to_user(
+                recipient_id,
+                {
+                    "action": WebSocketAction.RIDE_UPDATED,
+                    "data": {
+                        "ride_id": ride.id,
+                        "message_id": msg.id,
+                        "sender_id": msg.sender_id,
+                        "content": msg.content,
+                        "sent_at": msg.sent_at.isoformat(),
+                    },
+                },
+            )
+        )
+    except Exception:
+        # WS notification is best-effort; don't fail the request.
+        pass
+
+    return msg
+
+
+@router.get("/{ride_id}/messages", response_model=list[RideMessageResponse])
+def list_ride_messages(
+    ride_id: int,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_verified_user),
+):
+    """Retrieve the message history for a ride.
+
+    Only the rider, the assigned driver, and admins may read the thread.
+    Soft-deleted messages (``is_deleted='Y'``) are excluded.
+    """
+    from app.models.ride_message import RideMessage
+
+    _get_active_ride(ride_id, current_user, db)  # authorization check
+
+    messages = (
+        db.query(RideMessage)
+        .filter(RideMessage.ride_id == ride_id, RideMessage.is_deleted != "Y")
+        .order_by(RideMessage.sent_at)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return messages

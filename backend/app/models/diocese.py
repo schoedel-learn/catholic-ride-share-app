@@ -16,7 +16,7 @@ class Diocese(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
     state = Column(String, nullable=False)
-    
+
     # Relationships
     parishes = relationship("Parish", back_populates="diocese")
 

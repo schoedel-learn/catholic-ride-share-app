@@ -1,12 +1,15 @@
 import json
 from enum import Enum
-from typing import Dict, Any
+from typing import Any, Dict
+
 from fastapi import WebSocket
+
 
 class WebSocketAction(str, Enum):
     NEW_REQUEST = "new_request"
     RIDE_ACCEPTED = "ride_accepted"
     RIDE_UPDATED = "ride_updated"
+
 
 class ConnectionManager:
     def __init__(self):
@@ -32,5 +35,6 @@ class ConnectionManager:
     async def broadcast_to_users(self, message: dict, user_ids: list[int]):
         for user_id in user_ids:
             await self.send_personal_message(message, user_id)
+
 
 manager = ConnectionManager()

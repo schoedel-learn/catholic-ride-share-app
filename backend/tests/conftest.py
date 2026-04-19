@@ -14,17 +14,33 @@ os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 from app.db.session import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 
-# Import models so metadata is aware for table creation.
-from app.models import (  # noqa: F401, E402
-    coordinator_parish,
-    diocese,
-    donation,
-    driver_profile,
-    parish,
-    ride,
-    ride_request,
-    ride_review,
-    user,
+# Import model classes from the package so Base.metadata registers all tables.
+# The _MODELS tuple keeps each name referenced so static analysers do not flag
+# these as unused imports.
+from app.models import (  # noqa: E402
+    Diocese,
+    Donation,
+    DriverProfile,
+    Parish,
+    Ride,
+    RideMessage,
+    RideRequest,
+    RideReview,
+    User,
+    coordinator_parishes,
+)
+
+_MODELS = (
+    coordinator_parishes,
+    Diocese,
+    Donation,
+    DriverProfile,
+    Parish,
+    Ride,
+    RideMessage,
+    RideRequest,
+    RideReview,
+    User,
 )
 
 # Check if we're using SQLite (for local dev) or PostgreSQL (for CI)
@@ -133,8 +149,8 @@ def fake_redis(monkeypatch):
 def patch_point_for_sqlite(monkeypatch):
     """Avoid WKTElement binding issues on SQLite by using plain strings."""
     if _is_sqlite:
-        from app.api.endpoints import rides as rides_api
         from app.api.endpoints import drivers as drivers_api
+        from app.api.endpoints import rides as rides_api
 
         monkeypatch.setattr(
             rides_api, "_to_point", lambda longitude, latitude: f"POINT({longitude} {latitude})"

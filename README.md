@@ -36,51 +36,60 @@ At a high level, Catholic Ride Share is:
 
 ## Feature Overview
 
-### Implemented (Backend foundation so far)
+### Implemented
 
 - **Authentication & accounts**
   - User registration with email and password.
   - JWT-based login (`access_token` + `refresh_token`).
-  - Email verification with 6‑digit codes (required before using ride features).
+  - Email verification with 6-digit codes (required before using ride features).
   - Password reset flow with secure, single-use reset tokens.
 - **User profiles**
-  - Rider/driver/both/admin roles.
+  - Rider/driver/both/admin/coordinator roles.
   - Basic profile data (name, phone, parish reference).
-  - Optional profile photo upload (stored on S3, resized to 500×500 thumbnail).
-- **Core data models**
-  - `User` with optional last-known location (geospatial point).
-  - `DriverProfile` for vehicle and driver status (verification fields to be extended).
-  - `Parish` with **name + postal address + optional geospatial location** (no Mass times or URLs).
-  - `RideRequest` and `Ride` models for requests and live rides.
+  - Optional profile photo upload (stored on S3, resized to 500x500 thumbnail).
+  - Location update (`PUT /users/me/location`).
+- **Driver experience**
+  - `POST /drivers/profile` — idempotent upsert of vehicle details (make, model, year, color, plate, capacity).
+  - `PUT /drivers/me` — update an existing profile.
+  - `PUT /drivers/me/availability` — toggle driver availability.
+  - `GET /drivers/me/verification-status` — human-friendly verification summary.
+  - `GET /drivers/available` — list approved, available drivers; PostGIS distance ordering when coordinates are provided.
+  - Frontend driver profile setup page (`/driver-profile`) with verification status banner.
+- **Rider experience**
+  - `POST /rides/` — create a ride request with pickup/dropoff locations.
+  - `POST /rides/{id}/accept` — driver accepts a request (creates a `Ride`).
+  - `PATCH /rides/{id}/status` — driver updates status through enforced state machine.
+  - `POST /rides/{id}/cancel` — rider cancels a pending or accepted request.
+  - Real-time WebSocket push on status changes and new requests.
+  - Dashboard Cancel button for pending/accepted ride requests.
+- **Ride-scoped messaging**
+  - `POST /rides/{id}/messages` — send a chat message within an active ride.
+  - `GET /rides/{id}/messages` — retrieve the message thread.
+  - Authorization: only the rider, assigned driver, and admins may read/write.
+- **Donations & reviews**
+  - Post-ride star rating and optional Stripe donation.
+  - Donation preferences (fixed or distance-based auto-donation).
+- **Admin tools**
+  - `GET /admin/drivers` — list all drivers (admin) or parish-scoped drivers (coordinator).
+  - `PUT /admin/drivers/{id}/verify` — update training dates and background check status.
+  - `POST /admin/drivers/{id}/approve` — one-click approve (admin only).
+  - `POST /admin/drivers/{id}/reject` — one-click reject with optional reason (admin only).
+  - `GET /admin/parish/stats` — summary statistics.
+  - Next.js admin page with Approve/Reject quick-action buttons.
 - **Infrastructure**
   - Dockerized stack: FastAPI backend, Postgres + PostGIS, Redis, Celery worker.
-  - Alembic migrations wired to the same settings as the app.
+  - Alembic migrations (9 versions through ride messages table).
+  - Celery task stubs for ride and verification notifications (`app/tasks/notifications.py`).
+  - 28 pytest tests covering auth, rides, drivers, admin, and lifecycle edge cases.
 
-> Note: Many endpoints are still simple stubs; the backend structure is in place and being built out according to the strategic plan in `braingrid-improvements`.
+### Planned / In Progress
 
-### Planned (Under active development)
-
-- **Driver experience**
-  - Complete driver profile management (vehicle details, documents).
-  - Multi-step verification workflow (background checks, safe environment, admin approval).
-  - Availability (scheduled windows + “available now for X hours” sessions).
-- **Rider experience**
-  - Create ride requests with pickup + destination and optional parish reference.
-  - Discover willing drivers, with distance shown but **no fixed 10‑mile limit**.
-  - Real-time ride status updates from acceptance through completion/cancellation.
-- **Messaging & notifications**
-  - In-ride chat between rider and driver (WebSocket / Socket.IO).
-  - Push notifications (Firebase Cloud Messaging) + email notifications.
-- **Donations & reviews**
-  - Post-ride rating and optional donations via Stripe.
-  - Transparent handling of Stripe fees and net amounts.
-- **Admin tools**
-  - Admin endpoints for users, drivers, rides, and statistics.
-  - Simple web/admin UI (future) to manage verifications and issues.
-- **AI & assistance (future)**
-  - AI-powered matching suggestions.
-  - AI assistant for parish/ride questions (without storing or serving Mass times).
-  - Multi-language support.
+- **Driver document uploads** — license, insurance, and Safe Environment Training proof.
+- **Push notifications** — FCM/APNS integration for ride acceptance, status changes, and verification updates (Celery stubs are in place; delivery mechanism TBD).
+- **Address/map-based ride creation** — replace manual lat/lng entry in the dashboard.
+- **Parish admin CRUD** — create, update, import, and geocode parishes from the admin UI.
+- **Flutter mobile client** — primary rider/driver experience (see `braingrid-improvements`).
+- **AI & assistance (future)** — AI-powered matching suggestions and multilingual support.
 
 ## Technology Stack
 
