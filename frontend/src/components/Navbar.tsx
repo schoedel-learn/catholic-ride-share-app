@@ -16,6 +16,14 @@ export default function Navbar() {
     { href: "/profile", label: "Profile" },
   ];
 
+  if (
+    user.role === "driver" ||
+    user.role === "both" ||
+    user.role === "admin"
+  ) {
+    links.push({ href: "/driver-profile", label: "Driver Profile" });
+  }
+
   if (user.role === "admin" || user.role === "coordinator") {
     links.push({ href: "/admin", label: "Admin" });
   }

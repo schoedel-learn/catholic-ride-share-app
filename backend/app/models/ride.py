@@ -64,6 +64,7 @@ class Ride(Base):
 
     # Relationships
     ride_request = relationship("RideRequest")
+    messages = relationship("RideMessage", back_populates="ride", order_by="RideMessage.sent_at")
 
     @property
     def pickup(self) -> dict:

@@ -18,7 +18,7 @@ def _create_celery() -> Celery:
         "catholic_ride_share",
         broker=settings.REDIS_URL,
         backend=settings.REDIS_URL,
-        include=[],
+        include=["app.tasks.notifications"],
     )
     app.conf.update(
         task_serializer="json",

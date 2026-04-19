@@ -140,6 +140,22 @@ export interface DriverProfileResponse {
   updated_at: string;
 }
 
+export interface DriverVerificationStatus {
+  status: "no_profile" | "pending" | "approved" | "rejected";
+  message: string;
+  rejection_reason?: string | null;
+  training_completed_date?: string | null;
+  training_expiration_date?: string | null;
+}
+
+export interface RideMessage {
+  id: number;
+  ride_id: number;
+  sender_id: number | null;
+  content: string;
+  sent_at: string;
+}
+
 // Helper for API requests
 async function apiFetch<T>(
   endpoint: string,
@@ -608,6 +624,35 @@ export interface ParishStats {
 
 export async function getParishStats(token: string): Promise<ParishStats> {
   return apiFetch<ParishStats>("/admin/parish/stats", {
+    headers: authHeaders(token),
+  });
+}
+
+export async function getVerificationStatus(
+  token: string
+): Promise<DriverVerificationStatus> {
+  return apiFetch<DriverVerificationStatus>("/drivers/me/verification-status", {
+    headers: authHeaders(token),
+  });
+}
+
+export async function sendRideMessage(
+  token: string,
+  rideId: number,
+  content: string
+): Promise<RideMessage> {
+  return apiFetch<RideMessage>(`/rides/${rideId}/messages`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function listRideMessages(
+  token: string,
+  rideId: number
+): Promise<RideMessage[]> {
+  return apiFetch<RideMessage[]>(`/rides/${rideId}/messages`, {
     headers: authHeaders(token),
   });
 }

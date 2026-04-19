@@ -141,6 +141,14 @@ def approve_driver(
     driver.background_check_status = "approved"
     db.commit()
     db.refresh(driver)
+
+    try:
+        from app.tasks.notifications import notify_driver_verification_updated
+
+        notify_driver_verification_updated.delay(user_id, "approved")
+    except Exception:
+        pass  # Celery may not be available in all environments.
+
     return driver
 
 
@@ -173,6 +181,14 @@ def reject_driver(
         driver.admin_notes = payload.reason
     db.commit()
     db.refresh(driver)
+
+    try:
+        from app.tasks.notifications import notify_driver_verification_updated
+
+        notify_driver_verification_updated.delay(user_id, "rejected", payload.reason)
+    except Exception:
+        pass  # Celery may not be available in all environments.
+
     return driver
 
 

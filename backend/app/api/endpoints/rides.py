@@ -24,6 +24,7 @@ from app.schemas.ride import (
     RideRequestResponse,
     RideStatusUpdate,
 )
+from app.schemas.ride_message import RideMessageCreate, RideMessageResponse
 from app.services.payment import PaymentService, StripeNotConfiguredError
 from app.services.websocket import WebSocketAction, manager
 
@@ -445,3 +446,117 @@ def update_ride_status(
             "auto_donation_intent": auto_donation_intent,
         }
     )
+
+
+# ---------------------------------------------------------------------------
+# Ride-scoped messaging
+# ---------------------------------------------------------------------------
+
+
+def _get_active_ride(ride_id: int, current_user: User, db: Session) -> Ride:
+    """Fetch a ride and verify the caller is a participant or admin."""
+    from app.models.ride import Ride as _Ride
+
+    ride = db.query(_Ride).filter(_Ride.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ride not found")
+
+    is_participant = current_user.id in {ride.rider_id, ride.driver_id}
+    is_admin = current_user.role in {UserRole.ADMIN, UserRole.COORDINATOR}
+    if not (is_participant or is_admin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a participant in this ride",
+        )
+    return ride
+
+
+@router.post(
+    "/{ride_id}/messages",
+    response_model=RideMessageResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def send_ride_message(
+    ride_id: int,
+    payload: RideMessageCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_verified_user),
+):
+    """Send a chat message within an active ride.
+
+    Only the rider, the assigned driver, and admins may send messages.
+    Messages are rejected once a ride reaches ``completed`` or ``cancelled``
+    status to keep threads scoped to the active journey.
+    """
+    from app.models.ride_message import RideMessage
+
+    ride = _get_active_ride(ride_id, current_user, db)
+
+    if ride.status in {RideStatus.COMPLETED, RideStatus.CANCELLED}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot send messages on a completed or cancelled ride",
+        )
+
+    msg = RideMessage(
+        ride_id=ride.id,
+        sender_id=current_user.id,
+        content=payload.content,
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+
+    # Notify the other participant over WebSocket.
+    recipient_id = ride.driver_id if current_user.id == ride.rider_id else ride.rider_id
+    try:
+        import asyncio
+
+        asyncio.get_event_loop().run_until_complete(
+            manager.send_to_user(
+                recipient_id,
+                {
+                    "action": WebSocketAction.RIDE_UPDATED,
+                    "data": {
+                        "ride_id": ride.id,
+                        "message_id": msg.id,
+                        "sender_id": msg.sender_id,
+                        "content": msg.content,
+                        "sent_at": msg.sent_at.isoformat(),
+                    },
+                },
+            )
+        )
+    except Exception:
+        # WS notification is best-effort; don't fail the request.
+        pass
+
+    return msg
+
+
+@router.get("/{ride_id}/messages", response_model=list[RideMessageResponse])
+def list_ride_messages(
+    ride_id: int,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_verified_user),
+):
+    """Retrieve the message history for a ride.
+
+    Only the rider, the assigned driver, and admins may read the thread.
+    Soft-deleted messages (``is_deleted='Y'``) are excluded.
+    """
+    from app.models.ride_message import RideMessage
+
+    _get_active_ride(ride_id, current_user, db)  # authorization check
+
+    messages = (
+        db.query(RideMessage)
+        .filter(RideMessage.ride_id == ride_id, RideMessage.is_deleted != "Y")
+        .order_by(RideMessage.sent_at)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return messages
