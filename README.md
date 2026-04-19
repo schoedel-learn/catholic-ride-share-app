@@ -13,6 +13,16 @@ To strengthen Catholic communities by ensuring that transportation is never a ba
 
 > **📋 For Stakeholders**: If you're evaluating this project and have questions about risk, liability, or security, please see our comprehensive [Stakeholder Guide](docs/STAKEHOLDER_GUIDE.md) which addresses these concerns in detail.
 
+## Open Source & Self-Hosted by Communities
+
+Catholic Ride Share is an open-source project intended for **installation, operation, and customization by parishes, dioceses, and Catholic organizations**.
+
+- You can run your own instance for your local community.
+- You can customize workflows, policies, and integrations for local needs and diocesan requirements.
+- You can contribute improvements back to the shared open-source codebase.
+
+The core maintainers currently steward the repository and may offer managed hosting in the future, but **self-hosting and community ownership are first-class goals today**.
+
 ## 💬 Community & Discussions
 
 We'd love to hear from you! Whether you're a developer, a parish coordinator, a driver, a rider, or just someone who cares about this mission — you're welcome here.
@@ -33,6 +43,7 @@ At a high level, Catholic Ride Share is:
 - **Privacy-conscious**: only the information needed to coordinate rides is stored; parish records only include **full name and address**, not Mass times or links that change frequently.
 - **Donation-based**: riders can optionally offer donations after rides (via Stripe); there is no required payment for rides.
 - **Admin-supported**: admins can verify drivers, monitor the system, and help resolve issues.
+- **Deployable by your community**: each parish/diocese can operate its own instance with local governance and policies.
 
 ## Feature Overview
 

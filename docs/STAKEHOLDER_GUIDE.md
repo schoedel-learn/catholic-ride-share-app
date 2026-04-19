@@ -11,6 +11,17 @@ Catholic Ride Share is a volunteer-driven platform connecting Catholics who need
 - **Privacy-by-design**: Minimal data collection, strong encryption, GDPR/CCPA compliance
 - **Transparency**: Open-source development, community oversight, clear governance
 
+### Open-Source Deployment Model
+
+Catholic Ride Share is designed as an **open-source platform** that can be installed and operated by different communities.
+
+- A parish, diocese, or Catholic organization can self-host its own instance.
+- Each instance can define local governance, policies, and legal review appropriate to its jurisdiction.
+- The public repository provides shared code, documentation, and a place to collaborate on improvements.
+- Future managed hosting may be offered, but it is optional and not required to adopt the platform.
+
+In this document, references to "the platform" or "we" should be interpreted as applying to the maintainers and/or the operator of a specific deployment, depending on context.
+
 ---
 
 ## 1. Risk Assessment & Mitigation
@@ -79,7 +90,9 @@ We have identified and planned mitigation strategies for the following risk cate
 
 ### 2.1 Legal Structure
 
-**Platform Role**: Catholic Ride Share operates as a **facilitator/technology platform** connecting volunteers, not as a transportation provider or employer.
+**Platform Role**: In any deployment, Catholic Ride Share operates as a **facilitator/technology platform** connecting volunteers, not as a transportation provider or employer.
+
+**Deployment Responsibility**: The organization operating a given instance (for example, a parish or diocese) is responsible for adopting and enforcing local terms, verification requirements, incident procedures, and legal compliance for that deployment.
 
 **Key Legal Distinctions**:
 - Drivers are **independent volunteers**, not employees or contractors
@@ -655,7 +668,7 @@ A: The platform is free to use. Riders can optionally offer donations to drivers
 A: 100% of donations go to the driver, minus payment processing fees (typically 2.9% + $0.30 for Stripe). The platform takes no cut.
 
 **Q: Is this a for-profit company?**
-A: No. We're structured as an open-source community project and planning to become a 501(c)(3) nonprofit organization focused on serving the Catholic community.
+A: No. The codebase is an open-source community project. Communities can self-host and govern their own instances, and they may choose legal structures (including nonprofit models) appropriate for their local operations.
 
 ### Operational
 
@@ -681,20 +694,20 @@ Catholic Ride Share is designed with **safety, security, and risk mitigation** a
 If you're considering supporting Catholic Ride Share:
 
 1. **Review this document** thoroughly and note any additional questions
-2. **Contact us** for a detailed discussion of your specific concerns
-3. **Request access** to our security audit reports and legal documentation
-4. **Participate** in our advisory board or governance structure
-5. **Pilot partnership** - consider a limited pilot with your parish/diocese
+2. **Evaluate deployment options** (self-host now, or managed hosting later if offered)
+3. **Review and adapt policies** (terms, insurance, verification, incident response) for your jurisdiction
+4. **Pilot locally** with your parish/diocese using a limited initial rollout
+5. **Contribute improvements** back to the open-source project
 
 ### 12.3 For Parish Leaders
 
-We invite parishes to partner with us:
+We invite parishes and dioceses to adopt and shape the platform:
 
-1. **Initial consultation** to understand your community's needs
-2. **Legal review** with your diocesan counsel
-3. **Pilot program** with limited scope to test fit
-4. **Feedback loop** to improve platform for your community
-5. **Broader rollout** once comfort established
+1. **Set up your own instance** using the project documentation
+2. **Run legal and policy review** with local counsel and diocesan leadership
+3. **Pilot program** with limited scope to test local fit
+4. **Iterate locally** by customizing workflows for your community
+5. **Broader rollout** once your local operators are ready
 
 ### 12.4 Contact Information
 
@@ -712,8 +725,8 @@ We invite parishes to partner with us:
 
 ## Document Information
 
-**Version**: 1.0  
-**Last Updated**: November 2024  
+**Version**: 1.1  
+**Last Updated**: April 2026  
 **Next Review**: Quarterly  
 **Owner**: Project Maintainers (see GitHub repository contributors)
 
