@@ -44,7 +44,7 @@ googlemaps==4.10.0
 stripe==7.7.0
 
 # AWS
-boto3==1.33.6
+boto3==1.42.91
 
 # Images
 Pillow==10.0.1
