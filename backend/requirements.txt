@@ -47,7 +47,7 @@ stripe==7.7.0
 boto3==1.33.6
 
 # Images
-Pillow==10.0.1
+Pillow==12.2.0
 
 # Monitoring and logging
 sentry-sdk[fastapi]==1.38.0
