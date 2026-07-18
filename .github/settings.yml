@@ -1,14 +1,40 @@
-# Repository settings for catholic-ride-share
-# This file can be used with GitHub Apps like Probot Settings
-# or as documentation for manual configuration
+# Repository settings for catholic-ride-share-app
+# This file is used with the Probot Settings GitHub App to automatically
+# apply repository configuration. Install the app at:
+# https://github.com/apps/settings
+#
+# To make this repository a public template (GitHub feature):
+#   Go to Settings > (scroll down) > check "Template repository"
 
 repository:
   # Repository settings
-  name: catholic-ride-share
-  description: A community-driven ride-sharing application connecting Catholics who need transportation to Mass and church events
-  homepage: https://github.com/schoedel-learn/catholic-ride-share
-  topics: catholic, ride-sharing, community, volunteer, transportation
+  name: catholic-ride-share-app
+  description: >-
+    A community-driven volunteer ride-sharing app connecting Catholics who need
+    transportation to Mass, Confession, and church events with local drivers —
+    rural-friendly, privacy-first, and donation-based. Built with FastAPI,
+    PostgreSQL/PostGIS, Redis, Celery, and Docker.
+  homepage: https://github.com/schoedel-learn/catholic-ride-share-app
+  topics:
+    - catholic
+    - ride-sharing
+    - community
+    - volunteer
+    - transportation
+    - fastapi
+    - python
+    - postgresql
+    - postgis
+    - docker
+    - celery
+    - redis
+    - jwt-authentication
+    - open-source
+    - template
   
+  # Visibility
+  private: false
+
   # Features
   has_issues: true
   has_projects: true
