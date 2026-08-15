@@ -41,7 +41,7 @@ numpy==1.26.2
 googlemaps==4.10.0
 
 # Payment processing
-stripe==7.7.0
+stripe==15.0.1
 
 # AWS
 boto3==1.33.6
